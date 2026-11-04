@@ -2,7 +2,7 @@
 
 AI-anchored world news. Headlines come in through **5protocol's news pipeline**, get clustered and rewritten into anchor reads, are presented by AI anchors rendered locally on the 5090 (ComfyUI: OmniVoice TTS + InfiniteTalk over StarNet; HeyGen optional), and are published on the droplet with sponsor reads and ad slots.
 
-See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for parts and repos, **[docs/NEWSROOM.md](docs/NEWSROOM.md)** for the cast, shows and desks.
+Backlog: **[TASKS.md](TASKS.md)**. See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for parts and repos, **[docs/NEWSROOM.md](docs/NEWSROOM.md)** for the cast, shows and desks.
 
 ## Quick start
 
