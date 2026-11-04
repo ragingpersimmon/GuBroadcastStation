@@ -21,7 +21,7 @@ EXPECTED = ["/", "/latest/", "/live/", "/world/", "/world/asia/", "/world/africa
             "/business/markets/", "/business/consumer/", "/tech/", "/science/", "/entertainment/", "/sports/",
             "/local/", "/local/weather/", "/local/traffic/", "/markets/", "/video/", "/shows/", "/shows/evening/",
             "/shows/gucast/", "/people/", "/people/tessa/", "/people/margo/", "/people/coach/", "/archive/", "/search/",
-            "/newsletter/", "/about/", "/about/standards/", "/about/ai/", "/about/corrections/", "/about/sources/",
+            "/newsletter/", "/newsletter/thanks/", "/newsletter/confirmed/", "/newsletter/guide/", "/about/", "/about/standards/", "/about/ai/", "/about/corrections/", "/about/sources/",
             "/contact/", "/tips/", "/advertise/", "/advertise/guidelines/", "/privacy/", "/terms/", "/cookies/",
             "/accessibility/", "/sitemap/", "/404.html", "/feed.xml", "/world/feed.xml", "/sitemap.xml",
             "/news-sitemap.xml", "/robots.txt", "/manifest.webmanifest", "/search-index.json", "/assets/gu.css",

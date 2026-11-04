@@ -593,22 +593,97 @@ def page_search(ctx: Ctx) -> None:
     write(ctx, "/search/", shell(ctx, "/search/", "Search", body))
 
 
-def page_newsletter(ctx: Ctx) -> None:
+def signup_form(ctx: Ctx, fid: str = "em") -> str:
     n = ctx.site["newsletter"]
     if n.get("action"):
-        form = (f'<form class="stack-form" method="post" action="{e(n["action"])}"><label class="vh" for="em">Email address</label>'
-                '<input id="em" name="email" type="email" required placeholder="you@example.com" autocomplete="email">'
-                '<button class="btn solid" type="submit">Subscribe</button></form>')
-    else:
-        form = (f'<p><a class="btn solid" href="mailto:{ctx.emails["general"]}?subject=Subscribe%20to%20{quote(n["name"])}">'
-                f'Subscribe by email</a></p><p class="meta">Send the email as is and we will add you to the list.</p>')
-    body = (f'<header class="page-head"><h1>{e(n["name"])}</h1><p>{e(n["blurb"])}</p></header><div class="prose">'
-            f'{form}<p>The Gu Briefing is launching soon: one email each weekday morning with the top stories, each '
-            f'linked to its sources. Sign up now and you will get the first issue. Every issue will carry an unsubscribe '
-            f'link, and we never sell your address; see our <a href="/privacy/">privacy policy</a>.</p>'
+        return (f'<form class="stack-form" method="post" action="{e(n["action"])}">'
+                f'<label class="vh" for="{fid}">Email address</label>'
+                f'<input id="{fid}" name="{e(n.get("email_field", "email_address"))}" type="email" required '
+                'placeholder="you@example.com" autocomplete="email">'
+                '<button class="btn solid" type="submit">Subscribe</button></form>'
+                '<p class="meta">We\'ll email you a link to confirm. Unsubscribe from any issue in one click.</p>')
+    return (f'<p><a class="btn solid" href="mailto:{ctx.emails["general"]}?subject=Subscribe%20to%20{quote(n["name"])}">'
+            'Subscribe by email</a></p><p class="meta">Send the email as is. We\'ll add you when the first issue goes out '
+            'and ask you to confirm.</p>')
+
+
+def page_newsletter(ctx: Ctx) -> None:
+    from gbs.newsletter.compose import load_issues
+    n = ctx.site["newsletter"]
+    issues = load_issues(ctx.cfg)
+    live = bool(n.get("action"))
+    status = "" if live else "<p><strong>Launching soon.</strong> Sign up now and you'll get the first issue.</p>"
+    past = ("<h2>Recent issues</h2><ul>" + "".join(
+        f'<li><a href="/newsletter/issues/{i["date"]}/">{e(datetime.strptime(i["date"], "%Y-%m-%d").strftime("%A, %B %d").replace(" 0", " "))}</a>: '
+        f'{e(i["subject"])}</li>' for i in issues[:30]) + "</ul>") if issues else ""
+    body = (f'<header class="page-head"><h1>{e(n["name"])}</h1><p>{e(n["blurb"])}</p></header><div class="cols"><div class="prose">'
+            f'{status}{signup_form(ctx)}'
+            '<h2>What you get</h2><ul><li>The three stories that matter most, each in two lines, with its sources.</li>'
+            '<li>One or two headlines from every desk: world, politics, business, tech and science, culture and sports.</li>'
+            '<li>The market pulse and the local forecast.</li>'
+            f'<li>One labelled sponsor message at most. {e(n.get("cadence", ""))}, about a three-minute read.</li></ul>'
+            '<p>Signing up gets you a free one-page guide: <a href="/newsletter/guide/">how to read a news story in 60 seconds</a>.</p>'
+            f'{past}'
+            '<h2>Your address</h2><p>We use it only to send The Gu Briefing, through our email provider Kit. We never sell it. '
+            'See the <a href="/privacy/">privacy policy</a>.</p>'
             '<h2>Prefer a feed?</h2><p>Follow every section by RSS: <a href="/feed.xml">all stories</a>, or add '
-            '<code>feed.xml</code> to any section address, for example <a href="/world/feed.xml">/world/feed.xml</a>.</p></div>')
+            '<code>feed.xml</code> to any section address, for example <a href="/world/feed.xml">/world/feed.xml</a>.</p>'
+            f'</div>{side(ctx)}</div>')
     write(ctx, "/newsletter/", shell(ctx, "/newsletter/", n["name"], body))
+
+    write(ctx, "/newsletter/thanks/", shell(ctx, "/newsletter/thanks/", "Check your inbox", (
+        '<header class="page-head"><h1>Check your inbox</h1><p>One more step: we\'ve sent you an email with a confirmation '
+        'link.</p></header><div class="prose"><p>Click the link in that email to start receiving '
+        f'{e(n["name"])}. If it isn\'t there in a few minutes, check your spam or promotions folder, and add '
+        f'{e(ctx.emails["general"])} to your contacts so future issues land in your inbox.</p>'
+        '<p>While you wait: <a href="/newsletter/guide/">how to read a news story in 60 seconds</a>.</p></div>')))
+
+    write(ctx, "/newsletter/confirmed/", shell(ctx, "/newsletter/confirmed/", "You're subscribed", (
+        f'<header class="page-head"><h1>You\'re subscribed</h1><p>Welcome to {e(n["name"])}.</p></header><div class="prose">'
+        f'<p>Your first issue arrives at the next send: {e(n.get("cadence", "weekday mornings"))}. Each one has the top '
+        'stories, a headline or two from every desk, and links to every source, about three minutes of reading.</p>'
+        '<h2>Your free guide</h2><p><a href="/newsletter/guide/">How to read a news story in 60 seconds</a>: the five checks '
+        'we run on every story before Gu reports it.</p>'
+        '<h2>One question</h2><p>Which part of the world, or which topic, do you think gets too little coverage? Reply to any '
+        f'issue, or email {_mail_link(ctx.emails["tips"])}. We read every reply, and it shapes which sources we add.</p>'
+        '<p>Meanwhile: <a href="/live/">watch the latest edition</a> or <a href="/people/">meet the anchors</a>.</p></div>')))
+
+    write(ctx, "/newsletter/guide/", shell(ctx, "/newsletter/guide/", "How to read a news story in 60 seconds", (
+        '<header class="page-head"><h1>How to read a news story in 60 seconds</h1><p>Five checks we run before Gu reports '
+        'anything. They work on any story, from anyone, including us.</p></header><div class="prose"><ol>'
+        '<li><strong>Who reported it first?</strong> Look for the original outlet, not the account sharing it. On Gu, '
+        'that\'s the Sources box under every story.</li>'
+        '<li><strong>How many outlets have it?</strong> One outlet is a lead. Several independent outlets is a story. '
+        'Gu ranks stories higher when more outlets cover them.</li>'
+        '<li><strong>What\'s fact and what\'s claim?</strong> "Officials said" and "according to" mark claims, not '
+        'confirmed facts. Notice who is speaking.</li>'
+        '<li><strong>How old is it?</strong> Check the timestamp. Old stories travel fast when something new happens.</li>'
+        '<li><strong>Does the headline match the story?</strong> Read past the first line before you share. If the '
+        'details are thinner than the headline, wait.</li></ol>'
+        '<p>Gu is presented by AI characters and summarizes other outlets\' reporting, so these checks apply to us too. '
+        'If a Gu story fails one, <a href="/about/corrections/">tell us</a>.</p>'
+        f'{signup_form(ctx, "em2") if not ctx.site.get("_hide_guide_form") else ""}</div>'),
+        desc="Five checks to run on any news story before you believe it or share it."))
+
+    for i in issues[:60]:
+        nice = datetime.strptime(i["date"], "%Y-%m-%d").strftime("%A, %B %d, %Y").replace(" 0", " ")
+        path = f"/newsletter/issues/{i['date']}/"
+        body = (f'<header class="page-head"><h1>{e(n["name"])}: {e(nice)}</h1><p><a href="/newsletter/">All issues '
+                f'and sign-up</a></p></header><div class="cols"><div class="issue">{i["html"]}</div>'
+                f'<aside><section class="newsletter-band"><div><h2>Get it by email</h2><p>{e(n.get("cadence", ""))}.</p>'
+                f'</div></section>{signup_form(ctx, "em3")}</aside></div>')
+        write(ctx, path, shell(ctx, path, f"{n['name']}: {nice}", body, desc=i.get("preheader") or n["blurb"]))
+
+
+def _mail_link(addr: str) -> str:
+    return f'<a href="mailto:{e(addr)}">{e(addr)}</a>'
+
+
+def rebuild_newsletter_pages(cfg: Settings) -> None:
+    """Refresh only the newsletter pages (after `gbs newsletter`)."""
+    ctx = Ctx(cfg, None, {}, {})
+    ctx.articles = PublishedStore(cfg.data_dir / "published.db").recent(ctx.site["archive_days"])
+    page_newsletter(ctx)
 
 
 # ------------------------------------------------------------------ prose + machine files

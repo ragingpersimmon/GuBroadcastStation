@@ -58,7 +58,11 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 ## 5b. Site follow-ups
 
 - [ ] **T31 [ric]** Get the legal templates (`/privacy/`, `/terms/`, `/cookies/`) reviewed for your jurisdiction (`config/site.json`). Confirm the operator name and the promises they make (log retention, response times) before launch.
-- [ ] **T32 [agent]** Build The Gu Briefing sender. Pick a provider (Buttondown / Listmonk self-hosted), set `newsletter.action` in `config/site.json`, and add a weekday-morning job that emails the top stories with source links and an unsubscribe link. Until then, `/newsletter/` says "launching soon" and collects sign-ups by email.
+- [x] **T32 [agent]** The Gu Briefing built: issue composer, Kit + file providers, `gbs newsletter build|send`, weekday timer, sign-up/thanks/confirmed/guide pages, web archive of issues (2026-11-04). See `docs/NEWSLETTER.md`.
+- [ ] **T32a [ric]** Kit setup (docs/NEWSLETTER.md §1, §3): free account with news@gubs.ca, a **mailing address** for the footer (CASL), v4 API key in `.env`, double-opt-in form with the redirect URLs, form action URL into `config/site.json`.
+- [ ] **T32b [ric]** Domain authentication for gubs.ca in Kit: add its DKIM/return-path records plus a `_dmarc` TXT in Namecheap. Keep a single SPF record (§2).
+- [ ] **T32c [ric/agent]** Dry run: a week on `GBS_NEWSLETTER_PROVIDER=file`, read the outbox issues, then a self-test send on `kit`, then go live. Log the first send date in the Findings log.
+- [ ] **T32d [agent]** (when Kit Creator plan) Load welcome emails 2–3 as a Kit sequence; add a quarterly re-engagement and pruning job.
 - [ ] **T33 [agent]** Social share images: render a 1200x630 card per story (headline + Gu lower-third look, or a frame from the anchor clip) and add `og:image` / `twitter:image`.
 - [ ] **T34 [agent]** Burn-in captions on anchor clips (the script is the transcript), then update `/accessibility/` to drop the "known gaps" line.
 - [ ] **T35 [agent]** Self-host the two web fonts (Archivo, Source Serif 4) under `/assets/fonts/` so no request goes to Google, and update `/privacy/`.
@@ -85,6 +89,7 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 
 _Agents: append dated notes here (render timings, dead feeds, prompt changes)._
 
+- 2026-11-04: Newsletter platform = Kit free plan (10k subs, API on free). Beehiiv create-post API needs Max/Enterprise; Substack has no API.
 - 2026-11-04: Domain is gubs.ca. Public emails derive from GBS_SITE_URL's host (config/site.json `emails`).
 
 - 2026-11-04: Harold Yi added as lead anchor of Gu Morning and Gu Evening News, with a fixed signature open (see docs/NEWSROOM.md). Tessa Vale is now assistant anchor and Benji Powers morning co-anchor. When Harold's voice is designed in T7, check that it says the signature line straight.

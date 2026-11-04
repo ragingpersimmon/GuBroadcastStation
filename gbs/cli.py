@@ -7,6 +7,8 @@
   studio     render anchor videos for the latest edition + rebuild site (ANCHOR_ENGINE=comfy|heygen)
   comfy-tokenize <export.json> --kind anchor_talking|tts|tts_design|anchor_portrait
              turn a ComfyUI API-format export into a GBS workflow template
+  newsletter build|send [--force]
+             The Gu Briefing: build today's issue (preview) or send it (GBS_NEWSLETTER_PROVIDER=file|kit)
   comfy-portraits / comfy-voices [--force]
              design each character's locked face / voice once
   newsroom   show who's on air now and the desk assignments
@@ -364,10 +366,10 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="gbs")
     p.add_argument("command", choices=["ingest", "pulse", "rundown", "run", "studio", "comfy-ping",
                                        "heygen-list", "newsroom", "comfy-tokenize", "comfy-portraits",
-                                       "comfy-voices"])
-    p.add_argument("src", nargs="?", help="comfy-tokenize: API-format export to convert")
+                                       "comfy-voices", "newsletter"])
+    p.add_argument("src", nargs="?", help="comfy-tokenize: API-format export to convert; newsletter: build|send")
     p.add_argument("--kind", choices=["anchor_talking", "tts", "tts_design", "anchor_portrait"])
-    p.add_argument("--force", action="store_true", help="regenerate existing portraits/voices")
+    p.add_argument("--force", action="store_true", help="regenerate existing portraits/voices; resend today's newsletter")
     a = p.parse_args(argv)
     cfg = settings()
     if a.command == "ingest":
@@ -381,6 +383,15 @@ def main(argv=None) -> int:
         return cmd_rundown(cfg)
     if a.command == "studio":
         return cmd_studio(cfg)
+    if a.command == "newsletter":
+        if a.src not in ("build", "send"):
+            p.error("newsletter needs build|send")
+        from gbs.newsletter import run as newsletter_run
+        rc = newsletter_run(cfg, send=a.src == "send", force=a.force)
+        if rc == 0:  # refresh /newsletter/ so the new issue is in the web archive
+            from gbs.site.build import rebuild_newsletter_pages
+            rebuild_newsletter_pages(cfg)
+        return rc
     if a.command == "comfy-tokenize":
         if not (a.src and a.kind):
             p.error("comfy-tokenize needs <export.json> --kind ...")

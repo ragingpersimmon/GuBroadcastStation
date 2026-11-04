@@ -33,6 +33,7 @@ Cast, shows and desk assignments: **[NEWSROOM.md](NEWSROOM.md)**.
 | 3b | **ComfyUI studio** — design anchor faces (upload as HeyGen Photo Avatars), fallback talking heads, b-roll | kwon9000 | `gbs/anchors/comfy_client.py`, `gbs/studio/` | client done; workflows to build |
 | 4 | **Monetization** — on-air sponsor reads, pre-roll, web ad slots, ads.txt | droplet | `gbs/monetization/`, `config/sponsors.json` | working (house ad); network off |
 | 5 | **Site**: full news site (sections, stories, video, shows, people, markets, archive, search, standards, legal, ads), with history in `published.db` | droplet nginx | `gbs/site/` (`build.py` page map, `pages.py` prose, `assets.py` CSS/JS), `config/site.json` | working |
+| 5b | **Newsletter**: The Gu Briefing, weekdays 6 a.m. PT, built from `published.db`, sent via Kit | droplet → Kit API | `gbs/newsletter/`, `docs/NEWSLETTER.md` | working; Kit setup is Ric's |
 | 6 | **Ops** — systemd timer, provisioning, nginx | droplet | `deploy/` | ready |
 
 ## Repos you need

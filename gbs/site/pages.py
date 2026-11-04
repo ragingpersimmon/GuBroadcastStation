@@ -249,11 +249,11 @@ def privacy(ctx):
             f"""{_legal_flag()}
 <p>This policy covers the Gu website, newsletter and video. {e(s['operator'])} ("we") operates Gu from
 {e(s['jurisdiction'])} and handles personal information in line with Canada's Personal Information Protection and
-Electronic Documents Act (PIPEDA) and applicable provincial law.</p>
+Electronic Documents Act (PIPEDA), Canada's Anti-Spam Legislation (CASL) for our emails, and applicable provincial law.</p>
 <h2>What we collect</h2>
 <ul><li><strong>Reading the site:</strong> standard server logs (IP address, browser, pages requested, time) kept for
 security and to count traffic. We keep raw logs for no more than 30 days.</li>
-<li><strong>Newsletter:</strong> your email address, used only to send the newsletter.</li>
+<li><strong>Newsletter:</strong> your email address and when you confirmed it. We use a confirm-by-email (double opt-in) sign-up, so you only get The Gu Briefing after you ask for it. It's sent through our email provider, Kit (kit.com), which also records opens and clicks so we can see which stories readers want. You can unsubscribe from any issue in one click.</li>
 <li><strong>Messages you send us:</strong> your email and what you write, used to reply.</li>
 <li><strong>Advertising:</strong> if ad-network ads are switched on, our partner may use cookies. See the
 <a href="/cookies/">cookie policy</a>.</li></ul>

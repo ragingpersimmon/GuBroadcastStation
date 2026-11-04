@@ -10,7 +10,7 @@ cd /opt/gubroadcast && sudo -u gbs git submodule update --init
 sudo -u gbs python3 -m venv .venv && sudo -u gbs .venv/bin/pip install -r requirements.txt
 mkdir -p /var/www/gubroadcast && chown gbs: /var/www/gubroadcast
 [ -f .env ] || { cp .env.example .env; chown gbs: .env; chmod 600 .env; echo "edit /opt/gubroadcast/.env"; }
-cp deploy/gubroadcast-{pipeline,studio}.{service,timer} /etc/systemd/system/
+cp deploy/gubroadcast-{pipeline,studio,newsletter}.{service,timer} /etc/systemd/system/
 DOMAIN=${DOMAIN:-gubs.ca}
 if [ ! -f /etc/letsencrypt/live/$DOMAIN/fullchain.pem ]; then
   # bootstrap: plain-HTTP server for the ACME challenge, get the cert, then install the real config
@@ -24,5 +24,5 @@ NGX
 fi
 cp deploy/nginx_gubroadcast.conf /etc/nginx/sites-available/gubroadcast
 ln -sf /etc/nginx/sites-available/gubroadcast /etc/nginx/sites-enabled/gubroadcast
-systemctl daemon-reload && systemctl enable --now gubroadcast-pipeline.timer gubroadcast-studio.timer
+systemctl daemon-reload && systemctl enable --now gubroadcast-pipeline.timer gubroadcast-studio.timer gubroadcast-newsletter.timer
 nginx -t && systemctl reload nginx
