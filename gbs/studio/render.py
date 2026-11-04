@@ -1,38 +1,112 @@
 """Studio: script -> voice -> talking-head anchor -> composited segment.
 
-Stages (each swappable):
-  tts()          Piper CLI locally by default (fast, free); swap for XTTS/F5 via ComfyUI.
-  talking_head() ComfyUI `anchor_talking` workflow on the 5090 over StarNet.
-  compose()      ffmpeg: anchor video + lower third + ticker + bumper/ad pre-roll.
+Local engine (ANCHOR_ENGINE=comfy, default) -- all on the 5090 via ComfyUI:
+  comfy_tts()     `tts` workflow (OmniVoice / Chatterbox node): script -> wav, per-character voice
+  talking_head()  `anchor_talking` workflow (InfiniteTalk on WanVideoWrapper): portrait + wav -> mp4
+  compose_cmd()   ffmpeg: lower third + ticker (+ sponsor pre-roll)
+Portraits, reference voices and wavs are pushed with ComfyUI's /upload endpoint,
+so nothing has to be copied to the PC by hand.
 """
 from __future__ import annotations
 
+import json
+import math
+import re
 import shutil
 import subprocess
+import wave
 from pathlib import Path
 
 from gbs.anchors.comfy_client import ComfyClient
 
-
-def tts(text: str, voice: str, out_wav: Path) -> Path:
-    piper = shutil.which("piper")
-    if not piper:
-        raise RuntimeError("piper not installed (pip install piper-tts) -- or route TTS through ComfyUI")
-    out_wav.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run([piper, "--model", voice, "--output_file", str(out_wav)],
-                   input=text.encode(), check=True)
-    return out_wav
+REPO = Path(__file__).resolve().parents[2]
+FPS = 25  # InfiniteTalk / Wan2.1 native
 
 
-def talking_head(comfy: ComfyClient, anchor: dict, audio_name: str, out_dir: Path, prefix: str) -> Path:
+def _local(path: str) -> Path:
+    p = Path(path)
+    return p if p.is_absolute() else REPO / p
+
+
+def audio_seconds(path: Path, text: str = "") -> float:
+    try:
+        with wave.open(str(path)) as w:
+            return w.getnframes() / float(w.getframerate())
+    except Exception:
+        pass
+    if shutil.which("ffprobe"):
+        try:
+            out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                                  "-of", "json", str(path)], capture_output=True, text=True, timeout=30)
+            return float(json.loads(out.stdout)["format"]["duration"])
+        except Exception:
+            pass
+    return max(2.0, len(text.split()) / 2.6)  # ~156 wpm news read
+
+
+def wan_frames(seconds: float, fps: int = FPS) -> int:
+    """Wan models want 4n+1 frames."""
+    n = math.ceil(seconds * fps)
+    return n + (1 - n % 4) % 4 if n % 4 != 1 else n
+
+
+def _voice_ref(c: dict) -> Path | None:
+    if not c.get("voice_ref"):
+        return None
+    base = _local(c["voice_ref"])
+    for p in [base, *(base.with_suffix(x) for x in (".wav", ".flac", ".mp3"))]:
+        if p.is_file():
+            return p
+    return None
+
+
+def comfy_tts(comfy: ComfyClient, talent: dict, text: str, out_dir: Path, prefix: str) -> Path:
+    c = talent.get("comfy", {})
+    vals = {"TEXT": text, "SEED": c.get("seed", 0), "OUT_PREFIX": f"gbs/{prefix}_voice",
+            "VOICE_PROMPT": c.get("voice_prompt", "")}
+    ref = _voice_ref(c)
+    if ref:  # locked voice: clone from the saved reference every time
+        vals["VOICE_REF"] = comfy.upload(ref)
+        workflow = "tts"
+    else:    # no reference yet: design from the prompt (run `comfy-voices` to lock it)
+        workflow = "tts_design"
+    files = comfy.run(workflow, vals, out_dir)
+    auds = [f for f in files if f.suffix.lower() in (".wav", ".flac", ".mp3", ".ogg")]
+    if not auds:
+        raise RuntimeError("tts workflow produced no audio")
+    return auds[0]
+
+
+def talking_head(comfy: ComfyClient, talent: dict, audio: Path, out_dir: Path, prefix: str,
+                 text: str = "") -> Path:
+    c = talent.get("comfy", {})
+    ref = _local(c.get("ref_image", ""))
+    if not ref.is_file():
+        raise RuntimeError(f"{talent['name']}: portrait {ref} missing -- run `python -m gbs comfy-portraits`")
     files = comfy.run("anchor_talking", {
-        "REF_IMAGE": anchor["ref_image"], "AUDIO_PATH": audio_name,
-        "SEED": anchor["seed"], "OUT_PREFIX": prefix,
+        "REF_IMAGE": comfy.upload(ref), "AUDIO_PATH": comfy.upload(audio),
+        "NUM_FRAMES": wan_frames(audio_seconds(audio, text)),
+        "POSITIVE": c.get("motion_prompt", "a news presenter speaking to camera at a studio desk, "
+                                            "natural head movement, steady framing"),
+        "SEED": c.get("seed", 0), "OUT_PREFIX": f"gbs/{prefix}",
     }, out_dir)
-    vids = [f for f in files if f.suffix in (".mp4", ".webm", ".mov")]
+    vids = [f for f in files if f.suffix.lower() in (".mp4", ".webm", ".mov")]
     if not vids:
         raise RuntimeError("anchor_talking workflow produced no video")
     return vids[0]
+
+
+def comfy_portrait(comfy: ComfyClient, talent: dict, out_dir: Path) -> Path:
+    c = talent["comfy"]
+    files = comfy.run("anchor_portrait", {
+        "POSITIVE": c["look_prompt"], "SEED": c.get("seed", 0), "OUT_PREFIX": f"gbs/{talent['id']}_portrait",
+        "NEGATIVE": "blurry, deformed, extra fingers, text, watermark, logo, cartoon",
+        "REF_IMAGE": "",
+    }, out_dir)
+    imgs = [f for f in files if f.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp")]
+    if not imgs:
+        raise RuntimeError("anchor_portrait workflow produced no image")
+    return imgs[0]
 
 
 def _esc(t: str) -> str:

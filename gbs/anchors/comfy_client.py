@@ -19,6 +19,15 @@ from typing import Any
 WORKFLOW_DIR = Path(__file__).parent / "workflows"
 
 
+def load_workflow(name: str) -> dict:
+    p = WORKFLOW_DIR / f"{name}.json"
+    if not p.exists():
+        raise FileNotFoundError(
+            f"{p} missing -- export it from ComfyUI (Save (API Format)) and run "
+            f"`python -m gbs comfy-tokenize <export.json> --kind {name}`")
+    return json.loads(p.read_text())
+
+
 def fill(node: Any, values: dict) -> Any:
     if isinstance(node, dict):
         return {k: fill(v, values) for k, v in node.items()}
@@ -84,7 +93,33 @@ class ComfyClient:
                     saved.append(p)
         return saved
 
+    def upload(self, path: Path, subfolder: str = "gbs") -> str:
+        """Push a local file (portrait, reference voice, TTS wav) into ComfyUI's
+        input/ dir via /upload/image (accepts any file type). Returns the
+        name to put in LoadImage / LoadAudio inputs ("subfolder/file")."""
+        boundary = uuid.uuid4().hex
+        data = path.read_bytes()
+        parts = []
+        for k, v in (("overwrite", "true"), ("type", "input"), ("subfolder", subfolder)):
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode())
+        parts.append((f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="{path.name}"\r\n'
+                      "Content-Type: application/octet-stream\r\n\r\n").encode() + data + b"\r\n")
+        body = b"".join(parts) + f"--{boundary}--\r\n".encode()
+        req = urllib.request.Request(self.base + "/upload/image", data=body,
+                                     headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        with urllib.request.urlopen(req, timeout=self.timeout) as r:
+            out = json.loads(r.read())
+        return f"{out['subfolder']}/{out['name']}" if out.get("subfolder") else out["name"]
+
+    def free(self) -> None:
+        """Unload models and release VRAM so the LLM can have the GPU back."""
+        req = urllib.request.Request(self.base + "/free", method="POST",
+                                     data=json.dumps({"unload_models": True, "free_memory": True}).encode(),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=self.timeout):
+            pass
+
     def run(self, workflow_name: str, values: dict, dest: Path) -> list[Path]:
-        wf = json.loads((WORKFLOW_DIR / f"{workflow_name}.json").read_text())
+        wf = load_workflow(workflow_name)
         pid = self.queue(fill(wf, values))
         return self.download_outputs(self.wait(pid), dest)

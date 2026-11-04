@@ -1,6 +1,6 @@
 # Gu Broadcasting Station
 
-AI-anchored world news. Headlines come in through **5protocol's news pipeline**, get clustered and rewritten into anchor reads, are presented by **HeyGen Avatar III** anchors (faces optionally designed in ComfyUI on StarNet), and are published on the droplet with sponsor reads and ad slots.
+AI-anchored world news. Headlines come in through **5protocol's news pipeline**, get clustered and rewritten into anchor reads, are presented by AI anchors rendered locally on the 5090 (ComfyUI: OmniVoice TTS + InfiniteTalk over StarNet; HeyGen optional), and are published on the droplet with sponsor reads and ad slots.
 
 See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for parts and repos, **[docs/NEWSROOM.md](docs/NEWSROOM.md)** for the cast, shows and desks.
 
@@ -20,8 +20,10 @@ python -m gbs rundown     # rundown + scripts + static site -> $GBS_SITE_OUT
 python -m gbs run         # ingest + rundown (systemd timer runs this every 15 min)
 python -m gbs newsroom    # who's on air now, desk assignments, missing avatars
 python -m gbs heygen-list # HeyGen avatar + voice ids for config/newsroom.json
-python -m gbs studio      # render anchor videos for the latest rundown (HeyGen by default)
-python -m gbs comfy-ping  # check ComfyUI on kwon9000 (ANCHOR_ENGINE=comfy)
+python -m gbs studio      # render anchor clips for the latest edition + republish (local ComfyUI)
+python -m gbs comfy-tokenize export.json --kind anchor_talking   # convert your ComfyUI API export
+python -m gbs comfy-portraits / comfy-voices                     # lock each character's face / voice
+python -m gbs comfy-ping  # check ComfyUI on kwon9000
 ```
 
 Tests: `pytest -q` (offline; uses local RSS files through the real 5protocol poller).
@@ -37,5 +39,6 @@ gbs/monetization/ sponsors, on-air reads, web ad slots
 gbs/site/         static site builder
 config/           newsroom.json (cast, shows, desks), sponsors.json
 deploy/           systemd timer, nginx, droplet provisioning
+assets/           locked anchor portraits + reference voices
 vendor/5protocol  git submodule
 ```

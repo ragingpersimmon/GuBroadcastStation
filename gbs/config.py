@@ -39,8 +39,8 @@ class Settings:
     # ComfyUI on the 5090 box (StarNet / Tailscale)
     comfy_url: str = field(default_factory=lambda: _env("COMFY_URL", "http://kwon9000:8188").rstrip("/"))
 
-    # Anchor engine: "heygen" (HeyGen Avatar III, default) or "comfy"
-    anchor_engine: str = field(default_factory=lambda: _env("ANCHOR_ENGINE", "heygen").lower())
+    # Anchor engine: "comfy" (local InfiniteTalk + TTS on the 5090, default) or "heygen" (paid)
+    anchor_engine: str = field(default_factory=lambda: _env("ANCHOR_ENGINE", "comfy").lower())
     heygen_base: str = field(default_factory=lambda: _env("HEYGEN_API_BASE", "https://api.heygen.com"))
     heygen_api_key: str = field(default_factory=lambda: _env("HEYGEN_API_KEY"))
     # HEYGEN_TEST=1 -> watermarked test renders that don't burn credits

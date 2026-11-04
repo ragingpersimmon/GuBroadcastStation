@@ -100,3 +100,11 @@ def test_full_edition(tmp_path, monkeypatch):
     index = (cfg.site_out / "index.html").read_text()
     assert "Gu Evening News" in index and "BREAKING" in index
     assert "fictional, AI-generated" in (cfg.site_out / "about.html").read_text()
+    # edition persisted for the background studio pass, and the site picks up rendered clips
+    show, bookends, pulse, segs = cli.load_edition(cfg)
+    assert show["anchor"] == "tessa" and len(segs) == len([e for e in order if e["kind"] == "story"])
+    (cfg.site_out / "v").mkdir()
+    (cfg.site_out / "v" / f"{segs[0].slug}.mp4").write_bytes(b"x")
+    from gbs.site.build import build_site
+    build_site(cfg, segs, pulse=pulse, show=show, bookends=bookends)
+    assert f"/v/{segs[0].slug}.mp4" in (cfg.site_out / "index.html").read_text()

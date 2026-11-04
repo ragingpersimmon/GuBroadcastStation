@@ -84,14 +84,18 @@ def _cast_html() -> str:
     on_air = [t for t in nr["talent"] if t.get("kind") != "production"]
     rows = "".join(f"<li><strong>{html.escape(t['name'])}</strong> — {html.escape(t['title'])}</li>" for t in on_air)
     return ("<h3>On air</h3><p>Every on-air presenter below is a fictional, AI-generated character "
-            f"(HeyGen avatar, AI voice). None is a real person.</p><ul>{rows}</ul>")
+            f"(AI-rendered face and voice). None is a real person.</p><ul>{rows}</ul>")
 
 
 def build_site(cfg: Settings, rundown: list[Segment], pulse: dict | None = None,
                videos: dict | None = None, show: dict | None = None,
                bookends: dict | None = None) -> Path:
-    pulse, videos, bookends = pulse or {}, videos or {}, bookends or {}
+    pulse, videos, bookends = pulse or {}, dict(videos or {}), bookends or {}
     out = cfg.site_out
+    vdir = out / "v"
+    if vdir.is_dir():  # pick up clips rendered by earlier/background studio passes
+        for f in vdir.glob("*.mp4"):
+            videos.setdefault(f.stem, f"/v/{f.name}")
     (out / "s").mkdir(parents=True, exist_ok=True)
     ads = AdBook()
     side = ads.web_slot("sidebar")

@@ -1,6 +1,6 @@
 # Gu Broadcasting Station: newsroom → code
 
-Everything lives in `config/newsroom.json`. Every on-air character is a fictional, AI-generated HeyGen Avatar III presenter, and `/about.html` says so. Check with `python -m gbs newsroom`.
+Everything lives in `config/newsroom.json`. Every on-air character is a fictional, AI-generated presenter (rendered locally with InfiniteTalk; each has a `look_prompt` and `voice_prompt` in its `comfy` block), and `/about.html` says so. Check with `python -m gbs newsroom`.
 
 ## Shows (show clock, `GBS_TZ`)
 

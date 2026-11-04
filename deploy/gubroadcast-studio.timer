@@ -1,0 +1,10 @@
+[Unit]
+Description=Render anchor clips whenever the GPU is free (lock prevents overlap)
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

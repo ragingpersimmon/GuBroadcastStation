@@ -1,0 +1,11 @@
+[Unit]
+Description=Gu Broadcasting Station - render anchor video for the latest edition (ComfyUI on kwon9000)
+After=network-online.target tailscaled.service
+
+[Service]
+Type=oneshot
+User=gbs
+WorkingDirectory=/opt/gubroadcast
+EnvironmentFile=/opt/gubroadcast/.env
+ExecStart=/opt/gubroadcast/.venv/bin/python -m gbs studio
+TimeoutStartSec=3h

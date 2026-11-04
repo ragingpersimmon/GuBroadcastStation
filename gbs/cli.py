@@ -4,7 +4,11 @@
   pulse      print the live 5protocol market regime (tailnet)
   rundown    build + script the rundown and publish the static site
   run        ingest + rundown in one go (what the systemd timer calls)
-  studio     render anchor videos for the latest rundown (ANCHOR_ENGINE=heygen|comfy)
+  studio     render anchor videos for the latest edition + rebuild site (ANCHOR_ENGINE=comfy|heygen)
+  comfy-tokenize <export.json> --kind anchor_talking|tts|tts_design|anchor_portrait
+             turn a ComfyUI API-format export into a GBS workflow template
+  comfy-portraits / comfy-voices [--force]
+             design each character's locked face / voice once
   newsroom   show who's on air now and the desk assignments
   heygen-list  list HeyGen avatars + voices to fill config/newsroom.json
   comfy-ping check ComfyUI on StarNet
@@ -35,6 +39,25 @@ def cmd_pulse(cfg) -> int:
     from gbs.newsdesk.fiveprotocol_bridge import market_pulse
     print(json.dumps(market_pulse(cfg), indent=2))
     return 0
+
+
+def save_edition(cfg, show, bookends, pulse, rundown) -> None:
+    """Persist the full edition so `studio` can render later and rebuild the site."""
+    cfg.data_dir.mkdir(parents=True, exist_ok=True)
+    doc = {"show": show, "bookends": bookends, "pulse": pulse, "segments": [
+        {"story": s.story.to_dict(), "related": [r.to_dict() for r in s.related],
+         "anchor_id": s.anchor_id, "presenter_title": s.presenter_title,
+         "script": s.script, "sponsor_read": s.sponsor_read} for s in rundown]}
+    (cfg.data_dir / "edition.json").write_text(json.dumps(doc, ensure_ascii=False))
+
+
+def load_edition(cfg):
+    from gbs.models import Segment, Story
+    doc = json.loads((cfg.data_dir / "edition.json").read_text())
+    segs = [Segment(story=Story(**d["story"]), related=[Story(**r) for r in d["related"]],
+                    anchor_id=d["anchor_id"], presenter_title=d["presenter_title"],
+                    script=d["script"], sponsor_read=d["sponsor_read"]) for d in doc["segments"]]
+    return doc["show"], doc["bookends"], doc["pulse"], segs
 
 
 def cmd_rundown(cfg) -> int:
@@ -91,6 +114,7 @@ def cmd_rundown(cfg) -> int:
         echo = by_id(nr, brk["anchor"])
         bookends["breaking"] = _bk("breaking", echo, sw.write_breaking(cfg, echo, hot), hot.story.title)
 
+    save_edition(cfg, show, bookends, pulse, rundown)
     videos = {}
     if cfg.render_on_run and should_render(show, now):
         build_site(cfg, rundown, pulse=pulse, show=show, bookends=bookends)  # writes rundown.json
@@ -147,16 +171,24 @@ def render_rundown(cfg, rundown: list[dict], top: int) -> dict:
                 log.error("HeyGen render failed for %s: %s", slug, exc)
     else:
         from gbs.anchors.comfy_client import ComfyClient
-        from gbs.studio.render import talking_head, tts
-        comfy = ComfyClient(cfg.comfy_url)
+        from gbs.studio.gpu import gpu_for_render
+        from gbs.studio.render import comfy_tts, talking_head
+        comfy = ComfyClient(cfg.comfy_url, timeout=120)
         if not comfy.healthy():
             log.error("ComfyUI unreachable at %s", cfg.comfy_url)
             return {}
-        for seg in todo:
-            a = roster[seg["anchor"]]
-            wav = tts(_text(seg), a["voice"], work / f"{seg['slug']}.wav")
-            # wav must be visible to ComfyUI (rsync to its input/ dir on the GPU box)
-            raws[seg["slug"]] = talking_head(comfy, a, wav.name, work, seg["slug"])
+        vdone = cfg.site_out / "v"
+        with gpu_for_render(comfy):
+            for seg in todo:
+                if (vdone / f"{seg['slug']}.mp4").exists():
+                    continue  # rendered by an earlier studio pass
+                try:
+                    a = roster[seg["anchor"]]
+                    text = _text(seg)
+                    wav = comfy_tts(comfy, a, text, work, seg["slug"])
+                    raws[seg["slug"]] = talking_head(comfy, a, wav, work, seg["slug"], text=text)
+                except Exception as exc:
+                    log.error("local render failed for %s: %s", seg["slug"], exc)
 
     ticker = _ticker(rundown)
     out = {}
@@ -181,11 +213,90 @@ def render_rundown(cfg, rundown: list[dict], top: int) -> dict:
 
 
 def cmd_studio(cfg) -> int:
+    """Render video for the latest edition (skipping clips already done) and
+    republish the site with players. Safe to run on its own timer."""
+    import fcntl
+    from gbs.site.build import build_site
+    cfg.data_dir.mkdir(parents=True, exist_ok=True)
+    lock = open(cfg.data_dir / "studio.lock", "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        print("studio already running")
+        return 0
+    if not (cfg.data_dir / "edition.json").exists():
+        print("no edition yet -- run `rundown` first")
+        return 1
+    show, bookends, pulse, segs = load_edition(cfg)
     rundown = json.loads((cfg.site_out / "rundown.json").read_text())
-    top = cfg.render_top or 3
+    top = cfg.render_top or show.get("render_top", 1)
     done = render_rundown(cfg, rundown, top=top)
-    print(f"rendered {len(done)}/{min(len(rundown), top)} segments with {cfg.anchor_engine}")
-    return 0 if done else 1
+    build_site(cfg, segs, pulse=pulse, show=show, bookends=bookends)
+    print(f"rendered {len(done)}/{min(len(rundown), top)} with {cfg.anchor_engine}; site rebuilt")
+    return 0
+
+
+def cmd_comfy_tokenize(cfg, src: str, kind: str) -> int:
+    from pathlib import Path
+    from gbs.anchors.comfy_client import WORKFLOW_DIR
+    from gbs.anchors.comfy_tokenize import tokenize_file
+    dest, hits, missing = tokenize_file(Path(src), kind, WORKFLOW_DIR)
+    for tok, where in sorted(hits.items()):
+        print(f"  {{{{{tok}}}}} -> {', '.join(where)}")
+    if missing:
+        print(f"WARNING: no input found for {sorted(missing)} -- edit {dest} by hand")
+    print("wrote", dest)
+    return 1 if missing else 0
+
+
+def _comfy(cfg):
+    from gbs.anchors.comfy_client import ComfyClient
+    c = ComfyClient(cfg.comfy_url, timeout=120)
+    if not c.healthy():
+        raise SystemExit(f"ComfyUI unreachable at {cfg.comfy_url}")
+    return c
+
+
+def cmd_comfy_portraits(cfg, force: bool) -> int:
+    """Design each on-air character's face (writes candidates; you lock one in)."""
+    import shutil
+    from gbs.anchors.roster import load_roster
+    from gbs.studio.gpu import gpu_for_render
+    from gbs.studio.render import _local, comfy_portrait
+    comfy = _comfy(cfg)
+    with gpu_for_render(comfy):
+        for t in load_roster():
+            dest = _local(t["comfy"]["ref_image"])
+            if dest.exists() and not force:
+                continue
+            img = comfy_portrait(comfy, t, cfg.data_dir / "portraits")
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(img, dest)
+            print(f"{t['name']}: {dest}")
+    return 0
+
+
+def cmd_comfy_voices(cfg, force: bool) -> int:
+    """Design each character's voice once from voice_prompt, reading their
+    signature line, and save it as the cloning reference so the voice is
+    identical in every future segment."""
+    import shutil
+    from gbs.anchors.roster import load_roster
+    from gbs.studio.gpu import gpu_for_render
+    from gbs.studio.render import _local, comfy_tts
+    comfy = _comfy(cfg)
+    with gpu_for_render(comfy):
+        for t in load_roster():
+            from gbs.studio.render import _voice_ref
+            dest = _local(t["comfy"]["voice_ref"])
+            if _voice_ref(t["comfy"]) and not force:
+                continue
+            t = {**t, "comfy": {**t["comfy"], "voice_ref": ""}}
+            wav = comfy_tts(comfy, t, t["sample"], cfg.data_dir / "voices", f"{t['id']}_ref")
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(wav, dest.with_suffix(wav.suffix))
+            print(f"{t['name']}: {dest.with_suffix(wav.suffix)}")
+    return 0
 
 
 def cmd_newsroom(cfg) -> int:
@@ -200,10 +311,26 @@ def cmd_newsroom(cfg) -> int:
     for t in nr["talent"]:
         if t.get("desks"):
             print(f"  {t['name']:<24} {', '.join(t['desks'])}")
-    missing = [t["name"] for t in nr["talent"] if "heygen" in t
-               and not (t["heygen"].get("avatar_id") or t["heygen"].get("talking_photo_id"))]
-    if missing:
-        print("\nno HeyGen avatar yet:", ", ".join(missing))
+    if cfg.anchor_engine == "heygen":
+        missing = [t["name"] for t in nr["talent"] if "heygen" in t
+                   and not (t["heygen"].get("avatar_id") or t["heygen"].get("talking_photo_id"))]
+        if missing:
+            print("\nno HeyGen avatar yet:", ", ".join(missing))
+    else:
+        from gbs.anchors.comfy_client import WORKFLOW_DIR
+        from gbs.studio.render import _local, _voice_ref
+        on_air = [t for t in nr["talent"] if "comfy" in t]
+        no_face = [t["name"] for t in on_air if not _local(t["comfy"]["ref_image"]).is_file()]
+        no_voice = [t["name"] for t in on_air if not _voice_ref(t["comfy"])]
+        no_wf = [w for w in ("anchor_portrait", "tts", "tts_design", "anchor_talking")
+                 if not (WORKFLOW_DIR / f"{w}.json").exists()]
+        print(f"\nengine: comfy @ {cfg.comfy_url}")
+        if no_wf:
+            print("workflows to export + tokenize:", ", ".join(no_wf))
+        if no_face:
+            print("no locked portrait:", ", ".join(no_face))
+        if no_voice:
+            print("no locked voice:", ", ".join(no_voice))
     return 0
 
 
@@ -226,7 +353,12 @@ def cmd_heygen_list(cfg) -> int:
 def main(argv=None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     p = argparse.ArgumentParser(prog="gbs")
-    p.add_argument("command", choices=["ingest", "pulse", "rundown", "run", "studio", "comfy-ping", "heygen-list", "newsroom"])
+    p.add_argument("command", choices=["ingest", "pulse", "rundown", "run", "studio", "comfy-ping",
+                                       "heygen-list", "newsroom", "comfy-tokenize", "comfy-portraits",
+                                       "comfy-voices"])
+    p.add_argument("src", nargs="?", help="comfy-tokenize: API-format export to convert")
+    p.add_argument("--kind", choices=["anchor_talking", "tts", "tts_design", "anchor_portrait"])
+    p.add_argument("--force", action="store_true", help="regenerate existing portraits/voices")
     a = p.parse_args(argv)
     cfg = settings()
     if a.command == "ingest":
@@ -240,6 +372,14 @@ def main(argv=None) -> int:
         return cmd_rundown(cfg)
     if a.command == "studio":
         return cmd_studio(cfg)
+    if a.command == "comfy-tokenize":
+        if not (a.src and a.kind):
+            p.error("comfy-tokenize needs <export.json> --kind ...")
+        return cmd_comfy_tokenize(cfg, a.src, a.kind)
+    if a.command == "comfy-portraits":
+        return cmd_comfy_portraits(cfg, a.force)
+    if a.command == "comfy-voices":
+        return cmd_comfy_voices(cfg, a.force)
     if a.command == "newsroom":
         return cmd_newsroom(cfg)
     if a.command == "heygen-list":

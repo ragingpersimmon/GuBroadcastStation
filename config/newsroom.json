@@ -1,5 +1,5 @@
 {
- "_note": "Gu Broadcasting Station newsroom. Every on-air character is AI-rendered (HeyGen Avatar III); fill heygen ids via `python -m gbs heygen-list`. heygen.speed is the operator (Kai Love) read-speed knob. style/sample shape tone only -- never facts. shows use GBS_TZ local time; render_quarters = which quarter-hours (0-3) of each hour render video.",
+ "_note": "Gu Broadcasting Station newsroom. Every on-air character is AI-rendered. Default engine ANCHOR_ENGINE=comfy (local InfiniteTalk + TTS on the 5090) uses the `comfy` block; ANCHOR_ENGINE=heygen uses the `heygen` block. heygen.speed is the operator (Kai Love) read-speed knob. style/sample shape tone only -- never facts. shows use GBS_TZ local time; render_quarters = which quarter-hours (0-3) of each hour render video.",
  "station": "Gu Broadcasting Station",
  "talent": [
   {
@@ -20,6 +20,14 @@
      "type": "color",
      "value": "#0d0f14"
     }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, woman in her 40s, sharp tailored charcoal blazer, shoulder-length dark hair, evening news desk, warm key light, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510000,
+    "ref_image": "assets/anchors/tessa.png",
+    "voice_ref": "assets/voices/tessa.wav",
+    "voice_prompt": "confident female news anchor, mid-range, crisp diction, faintly wry, measured pace",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
    }
   },
   {
@@ -40,6 +48,14 @@
      "type": "color",
      "value": "#0d0f14"
     }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, man in his early 30s, rolled-sleeve light blue shirt, bright morning-show set with coffee mug, friendly smile, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510001,
+    "ref_image": "assets/anchors/benji.png",
+    "voice_ref": "assets/voices/benji.wav",
+    "voice_prompt": "upbeat young male morning-show host, energetic, warm, slightly fast",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
    }
   },
   {
@@ -60,6 +76,14 @@
      "type": "color",
      "value": "#0d0f14"
     }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, man in his 50s, navy suit, greying temples, calm expression, weekend news set, soft light, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510002,
+    "ref_image": "assets/anchors/nick.png",
+    "voice_ref": "assets/voices/nick.wav",
+    "voice_prompt": "deep calm male newsreader, steady, reassuring, unhurried",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
    }
   },
   {
@@ -80,6 +104,14 @@
      "type": "color",
      "value": "#0d0f14"
     }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, androgynous synthetic presenter, sleek silver-white hair, minimalist white collar, clean futuristic studio, subtle blue rim light, clearly stylised digital human, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510003,
+    "ref_image": "assets/anchors/nova.png",
+    "voice_ref": "assets/voices/nova.wav",
+    "voice_prompt": "polished neutral synthetic voice, precise, even cadence",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
    }
   },
   {
@@ -100,6 +132,14 @@
      "type": "color",
      "value": "#0d0f14"
     }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, synthetic presenter with short dark hair and a faint teal glow at the temples, high-collar black jacket, red breaking-news graphics behind, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510004,
+    "ref_image": "assets/anchors/echo.png",
+    "voice_ref": "assets/voices/echo.wav",
+    "voice_prompt": "clear urgent female voice, controlled, not alarmist",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
    }
   },
   {
@@ -123,6 +163,14 @@
      "type": "color",
      "value": "#0d0f14"
     }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, man in his 50s, rumpled tweed jacket, loosened tie, standing outside a city hall, overcast daylight, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510005,
+    "ref_image": "assets/anchors/marcus.png",
+    "voice_ref": "assets/voices/marcus.wav",
+    "voice_prompt": "dry gravelly male reporter, wry, deliberate",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
    }
   },
   {
@@ -151,6 +199,14 @@
      "type": "color",
      "value": "#0d0f14"
     }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, woman in her late 30s, utility field jacket, scarf, dusk skyline behind, composed expression, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510006,
+    "ref_image": "assets/anchors/lena.png",
+    "voice_ref": "assets/voices/lena.wav",
+    "voice_prompt": "calm female foreign correspondent, slight Central European accent, composed",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
    }
   },
   {
@@ -175,6 +231,14 @@
      "type": "color",
      "value": "#0d0f14"
     }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, man in his 40s, open-collar white shirt, trading-floor screens behind, animated expression, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510007,
+    "ref_image": "assets/anchors/rafael.png",
+    "voice_ref": "assets/voices/rafael.wav",
+    "voice_prompt": "punchy male business reporter, quick, sporty energy",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
    }
   },
   {
@@ -199,6 +263,14 @@
      "type": "color",
      "value": "#0d0f14"
     }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, woman in her late 20s, black turtleneck, round glasses, server-rack lights behind, sceptical half-smile, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510008,
+    "ref_image": "assets/anchors/juno.png",
+    "voice_ref": "assets/voices/juno.wav",
+    "voice_prompt": "sharp young female tech reporter, quick, dry",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
    }
   },
   {
@@ -222,6 +294,14 @@
      "type": "color",
      "value": "#0d0f14"
     }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, woman in her 40s, dark blazer, holding a folder of documents, office corridor, serious look, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510009,
+    "ref_image": "assets/anchors/dana.png",
+    "voice_ref": "assets/voices/dana.wav",
+    "voice_prompt": "firm female investigative reporter, precise, unflinching",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
    }
   },
   {
@@ -245,6 +325,14 @@
      "type": "color",
      "value": "#0d0f14"
     }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, woman in her 30s, emerald dress, weather map wall behind, bright friendly expression, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510010,
+    "ref_image": "assets/anchors/celeste.png",
+    "voice_ref": "assets/voices/celeste.wav",
+    "voice_prompt": "bright female meteorologist, friendly, clear",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
    }
   },
   {
@@ -268,6 +356,14 @@
      "type": "color",
      "value": "#0d0f14"
     }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, man in his 20s, headset, bomber jacket, helicopter cockpit window behind, big grin, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510011,
+    "ref_image": "assets/anchors/flip.png",
+    "voice_ref": "assets/voices/flip.wav",
+    "voice_prompt": "fast cheerful male traffic reporter, high energy",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
    }
   },
   {
@@ -291,6 +387,14 @@
      "type": "color",
      "value": "#0d0f14"
     }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, woman in her 30s, sequined jacket, red-carpet backdrop with soft bokeh lights, glamorous, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510012,
+    "ref_image": "assets/anchors/lola.png",
+    "voice_ref": "assets/voices/lola.wav",
+    "voice_prompt": "glamorous playful female entertainment reporter, breathy, lively",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
    }
   },
   {
@@ -314,6 +418,14 @@
      "type": "color",
      "value": "#0d0f14"
     }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, burly man in his 50s, varsity jacket, whistle around neck, stadium lights behind, booming grin, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510013,
+    "ref_image": "assets/anchors/coach.png",
+    "voice_ref": "assets/voices/coach.wav",
+    "voice_prompt": "loud booming male sports reporter, enthusiastic, gravelly",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
    }
   },
   {
