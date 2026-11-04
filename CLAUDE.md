@@ -14,4 +14,5 @@ AI-anchored news site. Pipeline: `gbs ingest` (world feeds through 5protocol's `
 - Only use TTS/video models with commercial-use licences (no XTTS-v2).
 - Clone only invented voices or Ric's own.
 - Run `FIVEPROTOCOL_PATH=<5protocol checkout> pytest -q` before committing. Add tests for new behaviour.
+- Site: every page lives in `gbs/site/build.py` (page map in its docstring) or `gbs/site/pages.py`. Run `tests/test_site.py` after changes; it crawls every link. Keep f-strings Python 3.11-safe (no same-type quotes inside `{}`).
 - Ric's style: terse, direct, actionable.

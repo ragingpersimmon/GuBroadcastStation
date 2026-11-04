@@ -1,18 +1,26 @@
 # Gu Broadcasting Station: newsroom → code
 
-Everything lives in `config/newsroom.json`. Every on-air character is a fictional, AI-generated presenter (rendered locally with InfiniteTalk; each has a `look_prompt` and `voice_prompt` in its `comfy` block), and `/about.html` says so. Check with `python -m gbs newsroom`.
+Everything lives in `config/newsroom.json`. Every on-air character (15 of them) is a fictional, AI-generated presenter (rendered locally with InfiniteTalk; each has a `look_prompt` and `voice_prompt` in its `comfy` block), and `/about.html` says so. Check with `python -m gbs newsroom`.
 
 ## Shows (show clock, `GBS_TZ`)
 
 | Show | Anchor | When | Video |
 |---|---|---|---|
-| Gu Morning | Benji Powers | Mon–Fri 05:00–10:00 | top 4 entries at :00 and :30 |
-| Gu Evening News | Tessa Vale | Mon–Fri 16:00–20:00 | top 4 entries at :00 and :30 |
+| Gu Morning | Harold Yi (lead) with Benji Powers | Mon–Fri 05:00–10:00 | top 4 entries at :00 and :30 |
+| Gu Evening News | Harold Yi (lead) with assistant anchor Tessa Vale | Mon–Fri 16:00–20:00 | top 4 entries at :00 and :30 |
 | Gu Weekend | Nick Laba | Sat–Sun 07:00–20:00 | top 3 entries at :00 |
 | Gu-cast | NOVA | all other times, every 15 min | 1 entry at :00 |
 | Breaking bumper | ECHO | any story with urgency ≥ 0.7, or 5protocol regime = crisis | rides the next render |
 
-An edition is ordered: breaking (if any) → open (show anchor, ≤25 words) → stories → close.
+An edition is ordered: breaking (if any) → open → stories → close. On Harold's shows he reads the open and lands the close, and the co-anchor (Benji or Tessa) reads any story whose desk has no reporter.
+
+## Harold Yi's signature open (`newsroom.json` → `harold.signature`)
+
+- **Every open:** `GUUd morning, listeners.` or `Good evening, listeners.`, then the fixed line *"This is Harold Yi at Gu Broadcasting Station, where we follow the story for your better insight."*, then `Today we have` or `Tonight we have` plus the top-story tease. Only the daypart and the tease change. The LLM writes the tease and nothing else.
+- **"GUUd"** appears on screen and on the site. The voice track reads it as "Good" (`signature.spoken`), so the TTS never spells it out.
+- **Serious lead:** if any of the top three stories trips the sensitivity gate, the greeting becomes a plain "Good morning" and no variant runs.
+- **Cheesier variants:** the five lines in `signature.variants`, used once per ISO week, on the Friday flagship open of the matching daypart. They only run on an edition that renders video, and they rotate week to week. State is kept in `$GBS_DATA_DIR/signature_state.json`.
+- **Delivery:** `comfy.voice_prompt` and `motion_prompt` ask for a straight, sincere read and a straight face. The cheese lives in the writing, not the delivery.
 
 ## On air → desks (assignment desk, Dex Okafor)
 

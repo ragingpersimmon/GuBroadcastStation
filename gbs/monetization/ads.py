@@ -27,10 +27,16 @@ class AdBook:
     def assign_on_air(self, rundown: list[Segment], write_fn=None) -> None:
         """Every Nth segment carries a labelled sponsor read. write_fn(sponsor, seg)
         lets the presenter voice it (scriptwriter.write_sponsor_read)."""
+        from gbs.editorial.standards import is_sensitive
         every = max(1, int(self.cfg.get("on_air_every_n_segments", 4)))
         for i, seg in enumerate(rundown):
             if i and i % every == 0:
+                # guidelines: never beside tragedy, never inside a story about the sponsor
+                if is_sensitive(seg.story.title, seg.story.summary):
+                    continue
                 s = self._pick(seg.story.desk)
+                if s and s["name"].lower() in (seg.story.title + " " + seg.story.summary).lower():
+                    continue
                 if s and s.get("on_air"):
                     seg.sponsor_read = (write_fn(s, seg) if write_fn
                                         else f"Sponsored by {s['name']}. {s['on_air']}")

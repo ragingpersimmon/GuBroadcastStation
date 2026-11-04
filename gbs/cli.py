@@ -90,8 +90,10 @@ def cmd_rundown(cfg) -> int:
             rundown.insert(min(len(rundown), 2 + i), Segment(story=st))
 
     # assignment desk: each story goes to the reporter who owns its desk
+    # stories nobody owns go to the co-anchor (e.g. Tessa Vale beside Harold Yi); the lead does open/close
+    desk_anchor = by_id(nr, show["co_anchor"]) if show.get("co_anchor") else anchor
     for seg in rundown:
-        p = presenter_for_desk(seg.story.desk, nr, anchor)
+        p = presenter_for_desk(seg.story.desk, nr, desk_anchor)
         seg.anchor_id, seg.presenter_title = p["name"], p["title"]
         seg.script = sw.write_script(cfg, seg, p)
 
@@ -104,8 +106,15 @@ def cmd_rundown(cfg) -> int:
                 "desk": "", "anchor": talent["name"], "presenter_title": talent["title"],
                 "script": script, "sources": [], "sponsor_read": None}
 
-    bookends = {"open": _bk("open", anchor, sw.write_open(cfg, show, anchor, rundown), show["name"]),
-                "close": _bk("close", anchor, sw.write_close(cfg, show, anchor), show["name"])}
+    if anchor.get("signature") and show.get("daypart"):
+        text, said = sw.write_signature_open(cfg, show, anchor, rundown, now=now,
+                                             state_path=cfg.data_dir / "signature_state.json",
+                                             allow_variant=should_render(show, now))  # spend it on an edition with video
+        opener = _bk("open", anchor, text, show["name"])
+        opener["spoken"] = said
+    else:
+        opener = _bk("open", anchor, sw.write_open(cfg, show, anchor, rundown), show["name"])
+    bookends = {"open": opener, "close": _bk("close", anchor, sw.write_close(cfg, show, anchor), show["name"])}
     brk = nr.get("breaking", {})
     hot = next((s for s in rundown if s.story.risk_score >= brk.get("risk_threshold", 1.1)), None)
     if hot is None and pulse.get("regime") in brk.get("on_regime", []):
@@ -144,8 +153,8 @@ def render_rundown(cfg, rundown: list[dict], top: int) -> dict:
     todo = rundown[:top]
     raws: dict = {}
 
-    def _text(seg):
-        return seg["script"] + (f" {seg['sponsor_read']}" if seg.get("sponsor_read") else "")
+    def _text(seg):  # what the voice reads: spoken form if set ("GUUd" -> "Good")
+        return seg.get("spoken") or seg["script"] + (f" {seg['sponsor_read']}" if seg.get("sponsor_read") else "")
 
     if cfg.anchor_engine == "heygen":
         from gbs.anchors.heygen_client import HeyGenClient

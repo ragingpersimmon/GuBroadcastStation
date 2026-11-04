@@ -32,7 +32,7 @@ Cast, shows and desk assignments: **[NEWSROOM.md](NEWSROOM.md)**.
 | 3a | **HeyGen Avatar III anchors** (optional, paid) — anchor video + voice from script, parallel render, lower third + ticker burned in | droplet → api.heygen.com | `gbs/anchors/heygen_client.py`, `cli.render_rundown` | **working**; needs API key + avatar/voice ids |
 | 3b | **ComfyUI studio** — design anchor faces (upload as HeyGen Photo Avatars), fallback talking heads, b-roll | kwon9000 | `gbs/anchors/comfy_client.py`, `gbs/studio/` | client done; workflows to build |
 | 4 | **Monetization** — on-air sponsor reads, pre-roll, web ad slots, ads.txt | droplet | `gbs/monetization/`, `config/sponsors.json` | working (house ad); network off |
-| 5 | **Site** — static edition pages, RSS, sitemap, about/AI disclosure, advertise | droplet nginx | `gbs/site/`, `deploy/` | working |
+| 5 | **Site**: full news site (sections, stories, video, shows, people, markets, archive, search, standards, legal, ads), with history in `published.db` | droplet nginx | `gbs/site/` (`build.py` page map, `pages.py` prose, `assets.py` CSS/JS), `config/site.json` | working |
 | 6 | **Ops** — systemd timer, provisioning, nginx | droplet | `deploy/` | ready |
 
 ## Repos you need
@@ -76,7 +76,7 @@ One-time setup on kwon9000:
 2. Pick the anchor look, one of:
    - **Public / Instant Avatar** → `character_type: "avatar"`, `avatar_id`.
    - **Your own face from ComfyUI** → generate the anchor portrait on kwon9000, upload it in HeyGen as a Photo Avatar → `character_type: "talking_photo"`, `talking_photo_id`.
-3. `python -m gbs heygen-list` → copy `avatar_id` / `voice_id` into each on-air talent's `heygen` block in `config/newsroom.json` (14 characters).
+3. `python -m gbs heygen-list` → copy `avatar_id` / `voice_id` into each on-air talent's `heygen` block in `config/newsroom.json` (15 characters).
 4. Keep `HEYGEN_TEST=1` (watermarked, no credits) until the output looks right, then set `HEYGEN_TEST=0`.
 5. `GBS_RENDER=1` renders inside every `gbs run`; per-show `render_top` / `render_quarters` set how much gets video (`GBS_RENDER_TOP` overrides). HeyGen API bills by minute of video. With the default show clock (newsroom.json `render_top` / `render_quarters`), a weekday is about 87 clips × ~40 s ≈ 58 min of video. Check this against your plan before raising either number.
 6. `ANCHOR_ENGINE=heygen` switches to HeyGen; `comfy` switches back.

@@ -1,0 +1,26 @@
+{
+  "_note": "Public site settings. Emails use the GBS_SITE_URL host (news@, tips@...). Legal pages are templates: have them reviewed before launch (TASKS.md T31).",
+  "tagline": "World news, read by AI anchors.",
+  "operator": "Gu Broadcasting Station",
+  "jurisdiction": "British Columbia, Canada",
+  "founded": "2026",
+  "emails": {
+    "general": "news",
+    "tips": "tips",
+    "corrections": "corrections",
+    "advertising": "ads",
+    "privacy": "privacy"
+  },
+  "newsletter": {
+    "name": "The Gu Briefing",
+    "blurb": "The day's top stories in one short email each weekday morning. Launching soon.",
+    "action": ""
+  },
+  "social": {
+    "YouTube": "",
+    "TikTok": "",
+    "Instagram": "",
+    "X": ""
+  },
+  "archive_days": 30
+}

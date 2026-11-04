@@ -1,158 +1,750 @@
-"""Static site generator for the droplet. Output goes to GBS_SITE_OUT
-(nginx serves it directly). Generates: index, one page per segment,
-RSS feed, sitemap, ads.txt, advertise + about (AI disclosure) pages."""
+"""Full static news site for the droplet (nginx serves GBS_SITE_OUT).
+
+Page map (every link in the nav/footer resolves; tests crawl it):
+  /                          home: lead package, latest, now-on-Gu, section rails, video
+  /latest/  /live/           newest stories; the current edition in running order
+  /world/ /world/<region>/   sections + sub-sections (+ /<section>/feed.xml)
+  /politics/ /business/ /business/markets/ /business/consumer/ /tech/ /science/
+  /entertainment/ /sports/ /local/ /local/weather/ /local/traffic/
+  /markets/                  5protocol market pulse + business desk
+  /story/YYYY/MM/DD/<slug>.html
+  /video/                    every story with an anchor clip
+  /shows/ /shows/<id>/       schedule, anchor, latest edition
+  /people/ /people/<id>/     on-air cast + newsroom, stories by presenter
+  /archive/ /archive/YYYY-MM-DD/
+  /search/ (+ /search-index.json)   /newsletter/
+  /about/ /about/standards/ /about/ai/ /about/corrections/ /about/sources/
+  /contact/ /tips/ /advertise/ /advertise/guidelines/
+  /privacy/ /terms/ /cookies/ /accessibility/ /sitemap/ /404.html
+  /feed.xml /sitemap.xml /news-sitemap.xml /robots.txt /manifest.webmanifest /ads.txt
+"""
 from __future__ import annotations
 
 import html
 import json
+import shutil
 import time
-from datetime import datetime, timezone
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from email.utils import formatdate
 from pathlib import Path
+from urllib.parse import quote, urlparse
+from zoneinfo import ZoneInfo
 
 from gbs.config import Settings
 from gbs.editorial.scriptwriter import outlet_name
 from gbs.models import Segment
 from gbs.monetization.ads import AdBook
+from gbs.site import assets, pages
+from gbs.site.data import (DESK_NAMES, SECTIONS, PublishedStore, article_url, desk_path,
+                           section_of, standfirst)
 
-CSS = """
-:root{--bg:#0d0f14;--card:#161a22;--ink:#e9ecf1;--dim:#8b93a3;--accent:#c8102e;--gold:#f2c14e}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}
-header{display:flex;align-items:center;gap:14px;padding:14px 24px;border-bottom:3px solid var(--accent)}
-header .logo{font-weight:800;letter-spacing:.5px}header .logo b{color:var(--accent)}
-.pulse{margin-left:auto;font-size:13px;color:var(--dim)}.pulse b{color:var(--gold)}
-main{max-width:1100px;margin:0 auto;padding:24px;display:grid;grid-template-columns:1fr 300px;gap:24px}
-@media(max-width:860px){main{grid-template-columns:1fr}}
-.seg{background:var(--card);border-radius:10px;padding:18px;margin-bottom:16px}
-.seg .desk{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--gold)}
-.seg h2{margin:4px 0 8px;font-size:20px}.seg a{color:var(--ink)}
-.seg .by{font-size:13px;color:var(--dim)}.seg video{width:100%;border-radius:8px;margin:8px 0}
-.src{font-size:13px;color:var(--dim)}.src a{color:var(--dim)}
-.ad{display:block;border:1px dashed #333a48;border-radius:10px;padding:14px;margin-bottom:16px}
-.ad a{color:var(--ink);text-decoration:none;display:flex;flex-direction:column;gap:4px}
-.ad-label{font-size:10px;text-transform:uppercase;color:var(--dim)}
-footer{text-align:center;color:var(--dim);font-size:13px;padding:24px}
-"""
+REPO = Path(__file__).resolve().parents[2]
+SITE_CONF = REPO / "config" / "site.json"
+e = html.escape
 
 
-def _page(cfg: Settings, ads: AdBook, title: str, body: str, side: str, pulse: dict) -> str:
-    pulse_html = ""
-    if pulse.get("regime"):
-        pulse_html = f'<div class="pulse">Market pulse: <b>{html.escape(str(pulse["regime"]).upper())}</b></div>'
+# ------------------------------------------------------------------ context
+
+class Ctx:
+    def __init__(self, cfg: Settings, show, pulse, bookends):
+        import os
+        from gbs.anchors.roster import load_newsroom
+        self.cfg, self.pulse, self.bookends = cfg, pulse or {}, bookends or {}
+        self.site = json.loads(SITE_CONF.read_text())
+        self.nr = load_newsroom()
+        self.show = show or next(s for s in self.nr["shows"] if s.get("default"))
+        self.tz = ZoneInfo(os.getenv("GBS_TZ", "America/Vancouver"))
+        self.ads = AdBook()
+        self.host = urlparse(cfg.site_url).hostname or "example.com"
+        self.emails = {k: f"{v}@{self.host}" for k, v in self.site["emails"].items()}
+        self.talent = {t["id"]: t for t in self.nr["talent"]}
+        self.by_name = {t["name"]: t for t in self.nr["talent"]}
+        self.out = cfg.site_out
+        self.written: list[str] = []
+        self.articles: list[dict] = []
+        self.portraits: dict[str, str] = {}
+
+    def anchor(self, show=None):
+        return self.talent[(show or self.show)["anchor"]]
+
+    def local(self, ts: float) -> datetime:
+        return datetime.fromtimestamp(ts, self.tz)
+
+
+def write(ctx: Ctx, path: str, content: str, sitemap: bool = True) -> None:
+    rel = path.lstrip("/")
+    dest = ctx.out / (rel + "index.html" if (rel == "" or rel.endswith("/")) else rel)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(content, encoding="utf-8")
+    if sitemap and path.endswith(("/", ".html")) and path != "/404.html":
+        ctx.written.append(path)
+
+
+# ------------------------------------------------------------------ atoms
+
+def t_iso(ts: float) -> str:
+    return datetime.fromtimestamp(ts, timezone.utc).isoformat(timespec="seconds")
+
+
+def time_tag(ctx: Ctx, ts: float, rel: bool = False, fmt: str = "%b %d, %Y %I:%M %p %Z") -> str:
+    label = ctx.local(ts).strftime(fmt).replace(" 0", " ")
+    return f'<time datetime="{t_iso(ts)}"{" data-rel" if rel else ""}>{e(label)}</time>'
+
+
+def person_id(ctx: Ctx, name: str) -> str | None:
+    t = ctx.by_name.get(name)
+    return t["id"] if t else None
+
+
+def person_link(ctx: Ctx, name: str) -> str:
+    pid = person_id(ctx, name)
+    return f'<a href="/people/{pid}/">{e(name)}</a>' if pid else e(name)
+
+
+def initials(name: str) -> str:
+    parts = [p for p in name.replace('"', "").split() if p[0].isalpha()]
+    return (parts[0][0] + (parts[-1][0] if len(parts) > 1 else "")).upper()
+
+
+def portrait(ctx: Ctx, tid: str, cls: str = "") -> str:
+    t = ctx.talent[tid]
+    if tid in ctx.portraits:
+        return f'<img class="portrait {cls}" src="{ctx.portraits[tid]}" alt="{e(t["name"])}, AI-generated presenter">'
+    return f'<span class="portrait mono {cls}" aria-hidden="true">{e(initials(t["name"]))}</span>'
+
+
+def video_tag(a: dict) -> str:
+    if not a.get("video"):
+        return ""
+    return (f'<div class="player"><video controls preload="none" playsinline src="{e(a["video"])}">'
+            f'</video></div>')
+
+
+def card(ctx: Ctx, a: dict, size: str = "m", deck: bool = False, kicker: bool = True,
+         show_video: bool = False, meta: bool = True) -> str:
+    url = article_url(a)
+    k = f'<a class="kicker" href="{desk_path(a["desk"])}">{e(DESK_NAMES.get(a["desk"], a["desk"].title()))}</a>' if kicker else ""
+    badge = '<span class="badge-video">Watch</span>' if a.get("video") and not show_video else ""
+    d = f'<p class="deck">{e(a["standfirst"])}</p>' if deck and a.get("standfirst") else ""
+    m = (f'<p class="meta">{person_link(ctx, a["presenter"])}{time_tag(ctx, a["ts"], rel=True)}</p>'
+         if meta else "")
+    vid = video_tag(a) if show_video else ""
+    return (f'<article class="card">{vid}{k}<h3 class="hl hl-{size}"><a href="{url}">{badge}{e(a["title"])}</a></h3>'
+            f'{d}{m}</article>')
+
+
+def empty(msg: str) -> str:
+    return f'<p class="empty">{e(msg)}</p>'
+
+
+# ------------------------------------------------------------------ chrome
+
+def onair_bar(ctx: Ctx) -> str:
+    a = ctx.anchor()
+    pulse = ""
+    if ctx.pulse.get("regime"):
+        pulse = f'<a class="pulse" href="/markets/">Markets <b>{e(str(ctx.pulse["regime"]).capitalize())}</b></a>'
+    return (f'<div class="onair" role="region" aria-label="On air now"><div class="wrap">'
+            f'<a class="tally" href="/live/"><i aria-hidden="true"></i>On air</a>'
+            f'<a class="show" href="/shows/{ctx.show["id"]}/">{e(ctx.show["name"])}</a>'
+            f'<span class="with">with {person_link(ctx, a["name"])}</span>'
+            f'<span class="right">{pulse}<time id="clock" data-tz="{e(str(ctx.tz))}" data-abbr="{e(datetime.now(ctx.tz).strftime("%Z"))}"></time></span>'
+            f'</div></div>')
+
+
+def nav(active: str | None) -> str:
+    items = []
+    for s in SECTIONS:
+        cur = ' aria-current="page"' if active == s["id"] else ""
+        sub = ""
+        if s["subs"]:
+            sub = '<ul class="sub">' + "".join(
+                f'<li><a href="{s["path"]}{d}/">{e(n)}</a></li>' for d, n in s["subs"]) + "</ul>"
+        items.append(f'<li><a href="{s["path"]}"{cur}>{e(s["name"])}</a>{sub}</li>')
+    for path, name, key in (("/markets/", "Markets", "markets"), ("/video/", "Video", "video"),
+                            ("/shows/", "Shows", "shows")):
+        cur = ' aria-current="page"' if active == key else ""
+        items.append(f'<li><a href="{path}"{cur}>{name}</a></li>')
+    return (f'<nav class="primary" aria-label="Sections"><div class="wrap"><ul class="top">{"".join(items)}</ul>'
+            f'</div></nav>')
+
+
+def masthead(ctx: Ctx) -> str:
+    return (f'<header class="mast"><div class="wrap">'
+            f'<a class="brand" href="/" aria-label="Gu Broadcasting Station home"><span class="gu">Gu</span>'
+            f'<span class="full">Broadcasting Station</span></a>'
+            f'<div class="tools"><a class="btn" href="/search/">Search</a>'
+            f'<a class="btn solid" href="/newsletter/">Get the briefing</a>'
+            f'<button class="btn navtoggle" aria-expanded="false" aria-controls="nav">Menu</button></div>'
+            f'</div></header>')
+
+
+def breaking_band(ctx: Ctx) -> str:
+    b = ctx.bookends.get("breaking")
+    if not b:
+        return ""
+    target = next((a for a in ctx.articles if a["title"] == b["title"]), None)
+    link = f'<a href="{article_url(target)}">{e(b["title"])}</a>' if target else f'<a href="/live/">{e(b["title"])}</a>'
+    return f'<div class="breaking" role="alert"><div class="wrap"><strong>Breaking</strong>{link}</div></div>'
+
+
+def footer(ctx: Ctx) -> str:
+    sec = "".join(f'<li><a href="{s["path"]}">{e(s["name"])}</a></li>' for s in SECTIONS)
+    watch = "".join(f'<li><a href="{u}">{n}</a></li>' for u, n in (
+        ("/live/", "Latest edition"), ("/video/", "Video"), ("/shows/", "Shows"), ("/people/", "Anchors & reporters"),
+        ("/markets/", "Markets"), ("/local/weather/", "Weather")))
+    about = "".join(f'<li><a href="{u}">{n}</a></li>' for u, n in (
+        ("/about/", "About Gu"), ("/about/standards/", "Editorial standards"), ("/about/ai/", "How Gu uses AI"),
+        ("/about/corrections/", "Corrections"), ("/about/sources/", "Our sources"), ("/contact/", "Contact"),
+        ("/tips/", "Send a tip")))
+    biz = "".join(f'<li><a href="{u}">{n}</a></li>' for u, n in (
+        ("/advertise/", "Advertise"), ("/advertise/guidelines/", "Sponsorship guidelines"),
+        ("/newsletter/", ctx.site["newsletter"]["name"]), ("/feed.xml", "RSS feeds"), ("/archive/", "Archive"),
+        ("/sitemap/", "Site map")))
+    legal = "".join(f'<li><a href="{u}">{n}</a></li>' for u, n in (
+        ("/privacy/", "Privacy policy"), ("/terms/", "Terms of use"), ("/cookies/", "Cookie policy"),
+        ("/accessibility/", "Accessibility")))
+    social = " ".join(f'<a href="{e(u)}" rel="me noopener">{e(n)}</a>' for n, u in ctx.site["social"].items() if u)
+    return (f'<footer class="site"><div class="wrap"><div class="cols5">'
+            f'<div><h2>Sections</h2><ul>{sec}</ul></div><div><h2>Watch</h2><ul>{watch}</ul></div>'
+            f'<div><h2>About</h2><ul>{about}</ul></div><div><h2>Business</h2><ul>{biz}</ul></div>'
+            f'<div><h2>Legal</h2><ul>{legal}</ul></div></div>'
+            f'<div class="base"><span class="gu">Gu</span>'
+            f'<span>Every Gu anchor and reporter is an AI-generated character. Stories are original summaries '
+            f'of reporting by the outlets credited on each page.</span>'
+            f'<span>{social}</span><span>&copy; {datetime.now().year} {e(ctx.site["operator"])}</span></div>'
+            f'</div></footer>')
+
+
+def shell(ctx: Ctx, path: str, title: str, body: str, desc: str = "", active: str | None = None,
+          og_type: str = "website", jsonld: dict | None = None, extra_head: str = "", top_ad: bool = True) -> str:
+    full = title if title == ctx.cfg.site_name else f"{title} | {ctx.cfg.site_name}"
+    desc = desc or ctx.site["tagline"]
+    url = ctx.cfg.site_url + path
+    ld = f'<script type="application/ld+json">{json.dumps(jsonld)}</script>' if jsonld else ""
+    cookie = ""
+    if ctx.ads.cfg.get("ad_network", {}).get("enabled"):
+        cookie = ('<div class="cookie" role="dialog" aria-label="Cookie choices"><p>Our advertising partner uses '
+                  'cookies to show and measure ads. <a href="/cookies/">Cookie policy</a></p>'
+                  '<button class="btn solid" data-v="all">Accept ad cookies</button> '
+                  '<button class="btn" data-v="essential">Essential only</button></div>')
+    ad = f'<div class="wrap ad-top">{ctx.ads.web_slot("top")}</div>' if top_ad else ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{html.escape(title)}</title><link rel="alternate" type="application/rss+xml" href="/feed.xml">
-<style>{CSS}</style>{ads.head_tag()}</head><body>
-<header><a class="logo" href="/" style="color:inherit;text-decoration:none"><b>GU</b> BROADCASTING STATION</a>{pulse_html}</header>
-{ads.web_slot("top")}
-<main><div>{body}</div><div>{side}</div></main>
-<footer>Presented by AI-generated anchors and reporters. Stories are rewritten summaries of reporting by the credited outlets; follow source links for original coverage. <a href="/about.html" style="color:inherit">About</a> · <a href="/advertise.html" style="color:inherit">Advertise</a></footer>
-</body></html>"""
+<title>{e(full)}</title><meta name="description" content="{e(desc)}">
+<link rel="canonical" href="{e(url)}"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#1b1f27">
+<link rel="alternate" type="application/rss+xml" title="{e(ctx.cfg.site_name)}" href="/feed.xml">
+<meta property="og:site_name" content="{e(ctx.cfg.site_name)}"><meta property="og:type" content="{og_type}">
+<meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}">
+<meta property="og:url" content="{e(url)}"><meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="{assets.FONTS}"><link rel="stylesheet" href="/assets/gu.css">
+{ctx.ads.head_tag()}{extra_head}{ld}</head><body>
+<a class="skip" href="#main">Skip to content</a>
+{onair_bar(ctx)}{masthead(ctx)}<div id="nav">{nav(active)}</div>{breaking_band(ctx)}
+{ad}<main id="main" class="wrap">{body}</main>{footer(ctx)}{cookie}
+<script src="/assets/gu.js" defer></script></body></html>"""
 
 
-def _sources_html(seg: Segment) -> str:
-    links = " · ".join(
-        f'<a href="{html.escape(s["link"])}" rel="noopener" target="_blank">{html.escape(outlet_name(s["source"]))}</a>'
-        for s in seg.sources)
-    return f'<div class="src">Sources: {links}</div>'
+def newsletter_band(ctx: Ctx) -> str:
+    n = ctx.site["newsletter"]
+    return (f'<section class="newsletter-band" aria-labelledby="nl"><div><h2 id="nl">{e(n["name"])}</h2>'
+            f'<p>{e(n["blurb"])}</p></div><a class="btn solid" href="/newsletter/">Sign up</a></section>')
 
 
-def _seg_card(seg: Segment, link_title: bool = True, video: str | None = None) -> str:
-    t = html.escape(seg.story.title)
-    title = f'<a href="/s/{seg.slug}.html">{t}</a>' if link_title else t
-    vid = f'<video controls preload="none" src="{html.escape(video)}"></video>' if video else ""
-    sponsor = f'<p class="by"><em>{html.escape(seg.sponsor_read)}</em></p>' if seg.sponsor_read else ""
-    script = "".join(f"<p>{html.escape(p)}</p>" for p in seg.script.split("\n") if p.strip())
-    return (f'<article class="seg"><div class="desk">{html.escape(seg.story.desk)}</div><h2>{title}</h2>'
-            f'<div class="by">{html.escape(seg.anchor_id)}{(" · " + html.escape(seg.presenter_title)) if seg.presenter_title else ""}</div>{vid}{script}{sponsor}{_sources_html(seg)}</article>')
+# ------------------------------------------------------------------ pages: news
+
+def page_home(ctx: Ctx) -> None:
+    arts = ctx.articles
+    if not arts:
+        write(ctx, "/", shell(ctx, "/", ctx.cfg.site_name, empty("The first edition is being prepared. Check back in a few minutes.")))
+        return
+    edition = [a for a in arts if a.get("_current")] or arts[:12]
+    lead, rest = edition[0], edition[1:]
+    lead_html = (f'<div>{video_tag(lead)}<div class="lowerthird"><a class="kicker" href="{desk_path(lead["desk"])}">'
+                 f'{e(DESK_NAMES.get(lead["desk"], ""))}</a><h2 class="hl hl-xl"><a href="{article_url(lead)}">'
+                 f'{e(lead["title"])}</a></h2>'
+                 + (f'<p class="deck">{e(lead["standfirst"])}</p>' if lead.get("standfirst") else "")
+                 + f'<p class="meta">{person_link(ctx, lead["presenter"])}{time_tag(ctx, lead["ts"], rel=True)}</p></div>'
+                 + (f'<div class="lead-more">{"".join(card(ctx, a, "s", meta=False) for a in rest[4:8])}</div>' if rest[4:] else "")
+                 + "</div>")
+    second = '<div class="stack">' + "".join(card(ctx, a, "m", deck=i == 0) for i, a in enumerate(rest[:4])) + "</div>"
+    latest = ('<aside class="latest" aria-labelledby="latest-h"><h2 id="latest-h">Latest <a href="/latest/">All</a></h2><ol>'
+              + "".join(f'<li>{time_tag(ctx, a["ts"], fmt="%I:%M")}<a href="{article_url(a)}">{e(a["title"])}</a></li>'
+                        for a in arts[:9]) + "</ol></aside>")
+    body = f'<h1 class="vh">{e(ctx.cfg.site_name)}: top stories</h1><section class="lead">{lead_html}{second}{latest}</section>'
+
+    op = ctx.bookends.get("open")
+    an = ctx.anchor()
+    if op:
+        body += (f'<section class="nowon" aria-label="Now on Gu"><div class="who">{portrait(ctx, an["id"])}'
+                 f'<div><strong><a href="/shows/{ctx.show["id"]}/">{e(ctx.show["name"])}</a></strong><br>'
+                 f'{person_link(ctx, an["name"])}</div></div><p class="open">{e(op["script"])}</p>'
+                 f'<a class="btn solid" href="/live/">Watch the edition</a></section>')
+    body += ctx.ads.web_slot("inline")
+
+    used = {a["slug"] for a in edition[:9]}
+    rails = []
+    for s in SECTIONS:
+        items = [a for a in arts if a["desk"] in s["desks"] and a["slug"] not in used][:5]
+        if not items:
+            continue
+        rails.append(f'<section class="rail" aria-labelledby="r-{s["id"]}"><h2 id="r-{s["id"]}">{e(s["name"])} '
+                     f'<a href="{s["path"]}">More {e(s["name"].lower())}</a></h2>'
+                     f'<div class="first">{card(ctx, items[0], "m", deck=True, kicker=False)}</div><ul>'
+                     + "".join(f'<li>{card(ctx, a, "s", kicker=False, meta=False)}</li>' for a in items[1:]) + "</ul></section>")
+    body += f'<div class="rails">{"".join(rails)}</div>'
+    vids = [a for a in arts if a.get("video")][:4]
+    if vids:
+        body += (f'<section aria-labelledby="v-h"><h2 id="v-h" class="block-title">Watch <a href="/video/">All video</a></h2>'
+                 f'<div class="grid">{"".join(card(ctx, a, "s", show_video=True) for a in vids)}</div></section>')
+    body += newsletter_band(ctx)
+    org = {"@context": "https://schema.org", "@type": "NewsMediaOrganization", "name": ctx.cfg.site_name,
+           "url": ctx.cfg.site_url, "logo": ctx.cfg.site_url + "/assets/favicon.svg",
+           "publishingPrinciples": ctx.cfg.site_url + "/about/standards/",
+           "correctionsPolicy": ctx.cfg.site_url + "/about/corrections/",
+           "actionableFeedbackPolicy": ctx.cfg.site_url + "/contact/"}
+    write(ctx, "/", shell(ctx, "/", ctx.cfg.site_name, body, jsonld=org))
 
 
-def _bookend_html(b: dict, video: str | None, cls: str) -> str:
-    vid = f'<video controls preload="none" src="{html.escape(video)}"></video>' if video else ""
-    label = {"open": "", "breaking": "<div class='desk' style='color:var(--accent)'>BREAKING</div>",
-             "close": ""}.get(b["kind"], "")
-    return (f'<article class="seg {cls}">{label}<div class="by">{html.escape(b["anchor"])} · '
-            f'{html.escape(b["presenter_title"])}</div>{vid}<p>{html.escape(b["script"])}</p></article>')
+def listing(ctx: Ctx, arts: list[dict]) -> str:
+    return '<ol class="listing">' + "".join(
+        f'<li>{time_tag(ctx, a["ts"], fmt="%b %d, %I:%M %p")}<div>{card(ctx, a, "m", deck=True)}</div></li>'
+        for a in arts) + "</ol>"
 
 
-def _cast_html() -> str:
-    try:
-        from gbs.anchors.roster import load_newsroom
-        nr = load_newsroom()
-    except Exception:
-        return ""
-    on_air = [t for t in nr["talent"] if t.get("kind") != "production"]
-    rows = "".join(f"<li><strong>{html.escape(t['name'])}</strong> — {html.escape(t['title'])}</li>" for t in on_air)
-    return ("<h3>On air</h3><p>Every on-air presenter below is a fictional, AI-generated character "
-            f"(AI-rendered face and voice). None is a real person.</p><ul>{rows}</ul>")
+def side(ctx: Ctx) -> str:
+    most = ctx.articles[:6]
+    return ('<aside>' + ctx.ads.web_slot("sidebar") + '<section class="latest"><h2>Latest</h2><ol>'
+            + "".join(f'<li>{time_tag(ctx, a["ts"], fmt="%I:%M")}<a href="{article_url(a)}">{e(a["title"])}</a></li>' for a in most)
+            + "</ol></section></aside>")
+
+
+def section_page(ctx: Ctx, path: str, name: str, intro: str, arts: list[dict], active: str,
+                 subnav: list[tuple[str, str]] | None = None, feed: str | None = None) -> None:
+    sn = ""
+    if subnav:
+        cur = ' aria-current="page"'
+        sn = '<div class="subnav">' + "".join(
+            f'<a href="{u}"{cur if u == path else ""}>{e(n)}</a>' for u, n in subnav) + "</div>"
+    head = f'<header class="page-head"><h1>{e(name)}</h1><p>{e(intro)}</p>{sn}</header>'
+    if arts:
+        top = f'<div class="grid grid-3">{"".join(card(ctx, a, "l" if i == 0 else "m", deck=i == 0, kicker=len(subnav or []) > 1, show_video=i == 0) for i, a in enumerate(arts[:3]))}</div>'
+        main = top + ctx.ads.web_slot("inline") + listing(ctx, arts[3:60])
+    else:
+        main = empty(f"No {name.lower()} stories yet. New stories arrive with every edition, about every 15 minutes.")
+    extra = f'<link rel="alternate" type="application/rss+xml" title="{e(name)}" href="{feed}">' if feed else ""
+    body = head + f'<div class="cols"><div>{main}</div>{side(ctx)}</div>'
+    write(ctx, path, shell(ctx, path, name, body, desc=intro, active=active, extra_head=extra))
+
+
+SECTION_INTROS = {
+    "world": "International news from every region, led by correspondent Lena Moravec.",
+    "politics": "Government, elections and policy, with politics reporter Marcus Bell.",
+    "business": "Companies, the economy and your money, with Rafael Tertelbach and Dana Ruiz.",
+    "tech": "Technology and AI, minus the hype, with Juno Park.",
+    "science": "Space, climate, health research and discovery.",
+    "entertainment": "Film, TV, music and culture, with Lola Sparks.",
+    "sports": "Scores, upsets and the stories behind them, with Troy \"Coach\" Maddox.",
+    "local": "Weather with Celeste Storm and traffic with Flip Torres.",
+}
+SUB_INTROS = {"americas": "North, Central and South America.", "europe": "Europe and the UK.",
+              "asia": "Asia and the Pacific.", "mideast": "The Middle East.", "africa": "Africa.",
+              "markets": "Markets and the economy.", "consumer": "Prices, scams, recalls and your rights, with Dana Ruiz.",
+              "weather": "The forecast with meteorologist Celeste Storm.", "traffic": "Roads and transit with Flip Torres."}
+
+
+def page_sections(ctx: Ctx) -> None:
+    for s in SECTIONS:
+        arts = [a for a in ctx.articles if a["desk"] in s["desks"]]
+        sub = [(s["path"], f"All {s['name'].lower()}")] + [(f"{s['path']}{d}/", n) for d, n in s["subs"]]
+        section_page(ctx, s["path"], s["name"], SECTION_INTROS[s["id"]], arts, s["id"],
+                     sub if s["subs"] else None, feed=f"{s['path']}feed.xml")
+        write(ctx, f"{s['path']}feed.xml", rss(ctx, arts[:40], s["name"], s["path"]), sitemap=False)
+        for d, n in s["subs"]:
+            section_page(ctx, f"{s['path']}{d}/", n, SUB_INTROS[d], [a for a in ctx.articles if a["desk"] == d],
+                         s["id"], sub)
+
+
+def page_latest_live(ctx: Ctx) -> None:
+    body = ('<header class="page-head"><h1>Latest news</h1><p>Every story Gu has published, newest first.</p></header>'
+            f'<div class="cols"><div>{listing(ctx, ctx.articles[:80]) if ctx.articles else empty("No stories yet.")}</div>{side(ctx)}</div>')
+    write(ctx, "/latest/", shell(ctx, "/latest/", "Latest news", body))
+
+    an = ctx.anchor()
+    parts = [f'<header class="page-head"><h1>{e(ctx.show["name"])}</h1><p>The current edition in running order, '
+             f'presented by {person_link(ctx, an["name"])}. A new edition goes out about every 15 minutes.</p></header>']
+    seq = []
+    for key in ("breaking", "open"):
+        if ctx.bookends.get(key):
+            seq.append(("b", ctx.bookends[key]))
+    seq += [("a", a) for a in ctx.articles if a.get("_current")]
+    if ctx.bookends.get("close"):
+        seq.append(("b", ctx.bookends["close"]))
+    items = []
+    for kind, x in seq:
+        if kind == "b":
+            v = f"/v/{x['slug']}.mp4" if (ctx.out / "v" / f"{x['slug']}.mp4").exists() else ""
+            vid = video_tag({"video": v})
+            label = {"breaking": "Breaking", "open": "Open", "close": "Close"}[x["kind"]]
+            items.append(f'<li><span class="kicker">{label}</span><div>{vid}<p class="meta">{person_link(ctx, x["anchor"])}</p>'
+                         f'<p class="body">{e(x["script"])}</p></div></li>')
+        else:
+            items.append(f'<li><span class="kicker">{e(DESK_NAMES.get(x["desk"], ""))}</span><div>'
+                         f'{card(ctx, x, "m", deck=True, kicker=False, show_video=True)}</div></li>')
+    parts.append('<ol class="listing">' + "".join(items) + "</ol>" if items else empty("The next edition is on its way."))
+    write(ctx, "/live/", shell(ctx, "/live/", f"Watch: {ctx.show['name']}", "".join(parts)))
+
+
+def page_story(ctx: Ctx, a: dict) -> None:
+    url = article_url(a)
+    sec = section_of(a["desk"])
+    crumbs = f'<nav class="crumbs" aria-label="Breadcrumb"><a href="{sec["path"]}">{e(sec["name"])}</a>'
+    if desk_path(a["desk"]) != sec["path"]:
+        crumbs += f'<span aria-hidden="true">/</span><a href="{desk_path(a["desk"])}">{e(DESK_NAMES[a["desk"]])}</a>'
+    crumbs += "</nav>"
+    pid = person_id(ctx, a["presenter"])
+    by = (f'<div class="byline">{portrait(ctx, pid) if pid else ""}<div><div class="name">{person_link(ctx, a["presenter"])}</div>'
+          f'<div class="role">{e(a.get("presenter_title") or "")}, AI presenter</div>'
+          f'<div class="when">Published {time_tag(ctx, a["ts"])}</div></div></div>')
+    paras = "".join(f"<p>{e(p)}</p>" for p in a["script"].split("\n") if p.strip())
+    sponsor = (f'<aside class="sponsor-box"><span class="lbl">Sponsored message read on air</span>{e(a["sponsor_read"])}</aside>'
+               if a.get("sponsor_read") else "")
+    srcs = "".join(f'<li><a href="{e(s["link"])}" rel="noopener nofollow" target="_blank">{e(outlet_name(s["source"]))}</a>: '
+                   f'original reporting</li>' for s in a["sources"])
+    sources = f'<section class="sources" aria-labelledby="src-h"><h2 id="src-h">Sources</h2><ul>{srcs}</ul></section>'
+    note = ('<p class="note">This story is an original summary of reporting by the outlets above, presented by an AI-generated '
+            'character. <a href="/about/ai/">How Gu uses AI</a>. Spotted an error? <a href="/about/corrections/">Request a correction</a>.</p>')
+    full = ctx.cfg.site_url + url
+    share = ('<div class="share" aria-label="Share">'
+             f'<a href="https://twitter.com/intent/tweet?url={quote(full)}&text={quote(a["title"])}" rel="noopener" target="_blank">Post on X</a>'
+             f'<a href="https://www.facebook.com/sharer/sharer.php?u={quote(full)}" rel="noopener" target="_blank">Facebook</a>'
+             f'<a href="https://www.linkedin.com/sharing/share-offsite/?url={quote(full)}" rel="noopener" target="_blank">LinkedIn</a>'
+             f'<a href="https://www.reddit.com/submit?url={quote(full)}&title={quote(a["title"])}" rel="noopener" target="_blank">Reddit</a>'
+             f'<a href="mailto:?subject={quote(a["title"])}&body={quote(full)}">Email</a>'
+             '<button type="button" data-copy>Copy link</button></div>')
+    rel = [x for x in ctx.articles if x["desk"] in sec["desks"] and x["slug"] != a["slug"]][:4]
+    related = (f'<section class="related"><h2 class="block-title">More {e(sec["name"].lower())} '
+               f'<a href="{sec["path"]}">All</a></h2><div class="grid">{"".join(card(ctx, x, "s") for x in rel)}</div></section>'
+               if rel else "")
+    body = (f'<div class="cols"><article class="article">{crumbs}<h1 class="hl hl-xl">{e(a["title"])}</h1>'
+            + (f'<p class="deck">{e(a["standfirst"])}</p>' if a.get("standfirst") else "")
+            + f'{by}{video_tag(a)}<div class="body">{paras}</div>{sponsor}{sources}{note}{share}</article>{side(ctx)}</div>{related}')
+    ld = {"@context": "https://schema.org", "@type": "NewsArticle", "headline": a["title"][:110],
+          "datePublished": t_iso(a["ts"]), "dateModified": t_iso(a["ts"]), "mainEntityOfPage": full,
+          "articleSection": DESK_NAMES.get(a["desk"], ""),
+          "author": {"@type": "Person", "name": a["presenter"], "url": f"{ctx.cfg.site_url}/people/{pid}/" if pid else ctx.cfg.site_url,
+                     "description": "AI-generated presenter"},
+          "publisher": {"@type": "NewsMediaOrganization", "name": ctx.cfg.site_name,
+                        "logo": {"@type": "ImageObject", "url": ctx.cfg.site_url + "/assets/favicon.svg"}},
+          "isBasedOn": [s["link"] for s in a["sources"]]}
+    if a.get("video"):
+        ld["video"] = {"@type": "VideoObject", "name": a["title"], "contentUrl": ctx.cfg.site_url + a["video"],
+                       "uploadDate": t_iso(a["ts"]), "description": a.get("standfirst") or a["title"],
+                       "thumbnailUrl": ctx.cfg.site_url + "/assets/favicon.svg"}
+    write(ctx, url, shell(ctx, url, a["title"], body, desc=a.get("standfirst") or a["title"], active=sec["id"],
+                          og_type="article", jsonld=ld))
+
+
+def page_video(ctx: Ctx) -> None:
+    vids = [a for a in ctx.articles if a.get("video")]
+    head = ('<header class="page-head"><h1>Video</h1><p>Every story our AI anchors and reporters have read on air. '
+            'New clips arrive through the day as the studio renders them.</p></header>')
+    body = head + (f'<div class="grid grid-3">{"".join(card(ctx, a, "m", show_video=True) for a in vids[:60])}</div>'
+                   if vids else empty("No video yet. Clips are added to stories as soon as the studio renders them."))
+    write(ctx, "/video/", shell(ctx, "/video/", "Video", body, active="video"))
+
+
+def page_markets(ctx: Ctx) -> None:
+    p = ctx.pulse
+    if p.get("regime"):
+        heads = "".join(f"<li>{e(h)}</li>" for h in p.get("top_headlines", []) if h)
+        card_ = (f'<section class="pulse-card"><p>Gu market pulse</p><p class="regime">{e(str(p["regime"]).capitalize())}</p>'
+                 f'<p>A reading of market-moving news: calm, normal, elevated or crisis. It updates with every edition.</p>'
+                 + (f"<p>Driving it now:</p><ul>{heads}</ul>" if heads else "") + "</section>")
+    else:
+        card_ = empty("The market pulse is offline right now. Business headlines below are still current.")
+    arts = [a for a in ctx.articles if a["desk"] in ("business", "markets", "consumer")]
+    body = ('<header class="page-head"><h1>Markets</h1><p>How the news is moving markets, with business reporter '
+            f'{person_link(ctx, "Rafael Tertelbach")}. Not investment advice.</p></header>'
+            f'<div class="cols"><div>{card_}{listing(ctx, arts[:40]) if arts else ""}</div>{side(ctx)}</div>')
+    write(ctx, "/markets/", shell(ctx, "/markets/", "Markets", body, active="markets"))
+
+
+DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+def show_when(show: dict) -> str:
+    if show.get("default"):
+        return "Around the clock, between our flagship shows"
+    d = show["days"]
+    days = "Weekdays" if d == [0, 1, 2, 3, 4] else "Weekends" if d == [5, 6] else ", ".join(DAYS[i] for i in d)
+    fmt = lambda s: datetime.strptime(s, "%H:%M").strftime("%I:%M %p").lstrip("0")
+    return f"{days}, {fmt(show['start'])} to {fmt(show['end'])}"
+
+
+SHOW_BLURBS = {"morning": "Wake up with Harold Yi and Benji Powers: the overnight headlines, the weather and your commute.",
+               "evening": "The day's defining stories, told straight, with lead anchor Harold Yi and assistant anchor Tessa Vale.",
+               "weekend": "The week's big stories, calmly explained.",
+               "gucast": "A short update every 15 minutes, read by Gu's AI prime anchor."}
+
+
+def page_shows(ctx: Ctx) -> None:
+    cards = []
+    for s in ctx.nr["shows"]:
+        a = ctx.talent[s["anchor"]]
+        live = s["id"] == ctx.show["id"]
+        cards.append(f'<article class="showcard{" live" if live else ""}"><h2 class="hl hl-l"><a href="/shows/{s["id"]}/">{e(s["name"])}</a></h2>'
+                     f'<p class="sched">{e(show_when(s))} ({e(str(ctx.tz))}){", on air now" if live else ""}</p>'
+                     f'<p>{e(SHOW_BLURBS.get(s["id"], ""))}</p>' + "".join(
+                         f'<div class="person">{portrait(ctx, x["id"])}<div>{person_link(ctx, x["name"])}'
+                         f'<div class="t">{e(x["title"])}</div></div></div>'
+                         for x in [a] + ([ctx.talent[s["co_anchor"]]] if s.get("co_anchor") else [])) + '</article>')
+        recent = [x for x in ctx.articles if x.get("show_id") == s["id"]][:20]
+        body = (f'<header class="page-head"><h1>{e(s["name"])}</h1><p>{e(SHOW_BLURBS.get(s["id"], ""))}</p>'
+                f'<p class="sched">{e(show_when(s))}, {e(str(ctx.tz))} time. Presented by {person_link(ctx, a["name"])}'
+                + (f' with {person_link(ctx, ctx.talent[s["co_anchor"]]["name"])}' if s.get("co_anchor") else "")
+                + '.</p></header>'
+                + ('<p><a class="btn solid" href="/live/">Watch the current edition</a></p>' if live else "")
+                + (f'<h2 class="block-title">Recent stories on {e(s["name"])}</h2>{listing(ctx, recent)}' if recent
+                   else empty(f"{s['name']} stories will appear here after its next edition.")))
+        write(ctx, f"/shows/{s['id']}/", shell(ctx, f"/shows/{s['id']}/", s["name"], body, active="shows"))
+    brk = ctx.talent[ctx.nr["breaking"]["anchor"]]
+    body = ('<header class="page-head"><h1>Shows</h1><p>Gu is on air all day. Flagship shows run at fixed times; '
+            f'Gu-cast fills every gap; breaking news cuts in with {person_link(ctx, brk["name"])} whenever it happens.</p></header>'
+            f'<div class="grid">{"".join(cards)}</div>')
+    write(ctx, "/shows/", shell(ctx, "/shows/", "Shows", body, active="shows"))
+
+
+def page_people(ctx: Ctx) -> None:
+    groups = [("Anchors", ("anchor",)), ("AI anchor unit", ("ai_anchor",)), ("Reporters & correspondents", ("reporter",)),
+              ("Newsroom", ("production",))]
+    hosted = defaultdict(list)
+    for s in ctx.nr["shows"]:
+        hosted[s["anchor"]].append(s)
+        if s.get("co_anchor"):
+            hosted[s["co_anchor"]].append(s)
+    blocks = []
+    for label, kinds in groups:
+        ppl = [t for t in ctx.nr["talent"] if t["kind"] in kinds]
+        blocks.append(f'<h2 class="block-title">{e(label)}</h2><div class="people">' + "".join(
+            f'<div class="person">{portrait(ctx, t["id"])}<div><a href="/people/{t["id"]}/"><strong>{e(t["name"])}</strong></a>'
+            f'<div class="t">{e(t["title"])}</div></div></div>' for t in ppl) + "</div>")
+        for t in ppl:
+            mine = [a for a in ctx.articles if a["presenter"] == t["name"]][:30]
+            on_air = t["kind"] != "production"
+            facts = []
+            if t.get("signature"):
+                facts.append("Opens every edition of " + ", ".join(
+                    f'<a href="/shows/{s["id"]}/">{e(s["name"])}</a>' for s in hosted[t["id"]] if s["anchor"] == t["id"])
+                    + " with the station's signature line")
+            if hosted.get(t["id"]):
+                facts.append("Hosts " + ", ".join(f'<a href="/shows/{s["id"]}/">{e(s["name"])}</a>' for s in hosted[t["id"]]))
+            if t.get("desks"):
+                facts.append("Covers " + ", ".join(f'<a href="{desk_path(d)}">{e(DESK_NAMES.get(d, d))}</a>' for d in t["desks"]))
+            if t["id"] == ctx.nr["breaking"]["anchor"]:
+                facts.append("Reads every breaking-news update")
+            kind_note = ("An AI-generated on-air character. The face and voice are synthetic; the reporting comes from "
+                         "the outlets credited on each story." if on_air else
+                         "A role in Gu's AI newsroom: this character stands for the editorial rules the system follows.")
+            body = (f'<div class="profile">{portrait(ctx, t["id"], "lg")}<div><h1 class="hl hl-xl">{e(t["name"])}</h1>'
+                    f'<p class="deck">{e(t["title"])}</p></div></div><div class="cols"><div class="prose">'
+                    f'<p>{e(t["style"])}</p><blockquote><p>{e(t["sample"])}</p></blockquote>'
+                    + "".join(f"<p>{f}.</p>" for f in facts) + f'<p class="note">{e(kind_note)}</p></div>{side(ctx)}</div>'
+                    + (f'<h2 class="block-title">Latest from {e(t["name"])}</h2>{listing(ctx, mine)}' if mine else
+                       (empty(f"{t['name']}'s stories will appear here after their next segment.") if on_air else "")))
+            ld = {"@context": "https://schema.org", "@type": "Person", "name": t["name"], "jobTitle": t["title"],
+                  "description": "AI-generated character", "worksFor": {"@type": "NewsMediaOrganization", "name": ctx.cfg.site_name}}
+            write(ctx, f"/people/{t['id']}/", shell(ctx, f"/people/{t['id']}/", t["name"], body, desc=f"{t['name']}, {t['title']}", jsonld=ld))
+    body = ('<header class="page-head"><h1>Anchors &amp; reporters</h1><p>Meet the Gu team. Every face and voice '
+            'on Gu is AI-generated, and none of them is a real person.</p></header>' + "".join(blocks))
+    write(ctx, "/people/", shell(ctx, "/people/", "Anchors & reporters", body))
+
+
+def page_archive(ctx: Ctx) -> None:
+    by_day = defaultdict(list)
+    for a in ctx.articles:
+        by_day[ctx.local(a["ts"]).strftime("%Y-%m-%d")].append(a)
+    days = sorted(by_day, reverse=True)
+    rows = "".join(f'<li><span>{e(datetime.strptime(d, "%Y-%m-%d").strftime("%A, %B %d, %Y").replace(" 0", " "))}</span>'
+                   f'<a href="/archive/{d}/">{len(by_day[d])} stories</a></li>' for d in days)
+    body = ('<header class="page-head"><h1>Archive</h1><p>Every day of Gu coverage from the last '
+            f'{ctx.site["archive_days"]} days. Story pages stay online after they leave this list.</p></header>'
+            + (f'<ul class="listing">{rows}</ul>' if rows else empty("The archive starts with the first edition.")))
+    write(ctx, "/archive/", shell(ctx, "/archive/", "Archive", body))
+    for d in days:
+        nice = datetime.strptime(d, "%Y-%m-%d").strftime("%A, %B %d, %Y").replace(" 0", " ")
+        body = f'<header class="page-head"><h1>{e(nice)}</h1><p><a href="/archive/">All dates</a></p></header>' + listing(ctx, by_day[d])
+        write(ctx, f"/archive/{d}/", shell(ctx, f"/archive/{d}/", f"Archive: {nice}", body))
+
+
+def page_search(ctx: Ctx) -> None:
+    idx = [{"t": a["title"], "s": a.get("standfirst") or "", "p": a["presenter"], "d": DESK_NAMES.get(a["desk"], ""),
+            "u": article_url(a), "date": ctx.local(a["ts"]).strftime("%b %d")} for a in ctx.articles]
+    write(ctx, "/search-index.json", json.dumps(idx, ensure_ascii=False), sitemap=False)
+    body = ('<header class="page-head"><h1>Search</h1></header>'
+            '<form id="search-form" class="stack-form" role="search" action="/search/" method="get">'
+            '<label class="vh" for="q">Search stories</label><input id="q" name="q" type="search" placeholder="Search stories, people, places" autocomplete="off">'
+            '<button class="btn solid" type="submit">Search</button></form>'
+            '<p id="search-status" class="meta" aria-live="polite"></p><ol id="results" class="listing"></ol>'
+            '<noscript><p class="empty">Search needs JavaScript. You can browse by <a href="/archive/">date</a> or section instead.</p></noscript>')
+    write(ctx, "/search/", shell(ctx, "/search/", "Search", body))
+
+
+def page_newsletter(ctx: Ctx) -> None:
+    n = ctx.site["newsletter"]
+    if n.get("action"):
+        form = (f'<form class="stack-form" method="post" action="{e(n["action"])}"><label class="vh" for="em">Email address</label>'
+                '<input id="em" name="email" type="email" required placeholder="you@example.com" autocomplete="email">'
+                '<button class="btn solid" type="submit">Subscribe</button></form>')
+    else:
+        form = (f'<p><a class="btn solid" href="mailto:{ctx.emails["general"]}?subject=Subscribe%20to%20{quote(n["name"])}">'
+                f'Subscribe by email</a></p><p class="meta">Send the email as is and we will add you to the list.</p>')
+    body = (f'<header class="page-head"><h1>{e(n["name"])}</h1><p>{e(n["blurb"])}</p></header><div class="prose">'
+            f'{form}<p>The Gu Briefing is launching soon: one email each weekday morning with the top stories, each '
+            f'linked to its sources. Sign up now and you will get the first issue. Every issue will carry an unsubscribe '
+            f'link, and we never sell your address; see our <a href="/privacy/">privacy policy</a>.</p>'
+            '<h2>Prefer a feed?</h2><p>Follow every section by RSS: <a href="/feed.xml">all stories</a>, or add '
+            '<code>feed.xml</code> to any section address, for example <a href="/world/feed.xml">/world/feed.xml</a>.</p></div>')
+    write(ctx, "/newsletter/", shell(ctx, "/newsletter/", n["name"], body))
+
+
+# ------------------------------------------------------------------ prose + machine files
+
+def page_prose(ctx: Ctx) -> None:
+    for path, title, desc, body in pages.all_pages(ctx):
+        write(ctx, path, shell(ctx, path, title, f'<header class="page-head"><h1>{e(title)}</h1>'
+                               f'<p>{e(desc)}</p></header><div class="prose">{body}</div>', desc=desc))
+    body = ('<header class="page-head"><h1>Page not found</h1><p>That address doesn\'t match any page on Gu. It may have '
+            'moved, or the link may be mistyped.</p></header><form class="stack-form" action="/search/" method="get">'
+            '<label class="vh" for="q404">Search stories</label><input id="q404" name="q" type="search" placeholder="Search stories">'
+            '<button class="btn solid">Search</button></form><p class="prose">Or go to the <a href="/">front page</a>, '
+            'the <a href="/latest/">latest news</a> or the <a href="/sitemap/">site map</a>.</p>')
+    write(ctx, "/404.html", shell(ctx, "/404.html", "Page not found", body), sitemap=False)
+
+
+def page_sitemap_html(ctx: Ctx) -> None:
+    groups = defaultdict(list)
+    for p in sorted(set(ctx.written)):
+        if p.startswith(("/story/", "/archive/2")):
+            continue
+        top = "/" + p.strip("/").split("/")[0] + "/" if p != "/" else "/"
+        groups[top].append(p)
+    items = "".join(f'<li><a href="{p}">{e(p)}</a></li>' for g in sorted(groups) for p in groups[g])
+    write(ctx, "/sitemap/", shell(ctx, "/sitemap/", "Site map", '<header class="page-head"><h1>Site map</h1>'
+                                  '<p>Every section and page on Gu. Stories are listed in the <a href="/archive/">archive</a>.</p></header>'
+                                  f'<ul class="prose">{items}<li><a href="/sitemap/">/sitemap/</a></li></ul>'))
+
+
+def rss(ctx: Ctx, arts: list[dict], title: str, path: str) -> str:
+    items = "".join(
+        f"<item><title>{e(a['title'])}</title><link>{ctx.cfg.site_url}{article_url(a)}</link>"
+        f"<guid isPermaLink=\"true\">{ctx.cfg.site_url}{article_url(a)}</guid><pubDate>{formatdate(a['ts'])}</pubDate>"
+        f"<category>{e(DESK_NAMES.get(a['desk'], ''))}</category><description>{e(a['script'])}</description></item>"
+        for a in arts)
+    name = ctx.cfg.site_name if title == ctx.cfg.site_name else f"{ctx.cfg.site_name}: {title}"
+    return (f'<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>{e(name)}</title>'
+            f"<link>{ctx.cfg.site_url}{path}</link><description>{e(ctx.site['tagline'])}</description><language>en</language>"
+            f"<lastBuildDate>{formatdate(time.time())}</lastBuildDate>{items}</channel></rss>")
+
+
+def machine_files(ctx: Ctx) -> None:
+    base = ctx.cfg.site_url
+    write(ctx, "/feed.xml", rss(ctx, ctx.articles[:60], ctx.cfg.site_name, "/"), sitemap=False)
+    urls = sorted(set(ctx.written))
+    write(ctx, "/sitemap.xml", '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+          + "".join(f"<url><loc>{base}{u}</loc></url>" for u in urls) + "</urlset>", sitemap=False)
+    cutoff = time.time() - 48 * 3600
+    news = [a for a in ctx.articles if a["ts"] >= cutoff][:1000]
+    write(ctx, "/news-sitemap.xml",
+          '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+          'xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">'
+          + "".join(f"<url><loc>{base}{article_url(a)}</loc><news:news><news:publication><news:name>{e(ctx.cfg.site_name)}"
+                    f"</news:name><news:language>en</news:language></news:publication><news:publication_date>{t_iso(a['ts'])}"
+                    f"</news:publication_date><news:title>{e(a['title'])}</news:title></news:news></url>" for a in news)
+          + "</urlset>", sitemap=False)
+    write(ctx, "/robots.txt", f"User-agent: *\nAllow: /\nDisallow: /rundown.json\nDisallow: /social/\n"
+          f"Sitemap: {base}/sitemap.xml\nSitemap: {base}/news-sitemap.xml\n", sitemap=False)
+    write(ctx, "/manifest.webmanifest", json.dumps({"name": ctx.cfg.site_name, "short_name": "Gu", "start_url": "/",
+          "display": "standalone", "background_color": "#ffffff", "theme_color": "#1b1f27",
+          "icons": [{"src": "/assets/favicon.svg", "sizes": "any", "type": "image/svg+xml"}]}), sitemap=False)
+    if ctx.ads.ads_txt():
+        write(ctx, "/ads.txt", ctx.ads.ads_txt() + "\n", sitemap=False)
+    write(ctx, "/assets/gu.css", assets.CSS, sitemap=False)
+    write(ctx, "/assets/gu.js", assets.JS, sitemap=False)
+    write(ctx, "/assets/favicon.svg", assets.FAVICON, sitemap=False)
+
+
+# ------------------------------------------------------------------ entry point
+
+def _rows_from_rundown(ctx: Ctx, rundown: list[Segment], videos: dict, now: float) -> list[dict]:
+    rows = []
+    for i, s in enumerate(rundown):
+        rows.append({"slug": s.slug, "ts": now - i, "story_ts": s.story.ts, "show_id": ctx.show["id"],
+                     "desk": s.story.desk, "title": s.story.title, "standfirst": standfirst(s.script, s.story.title),
+                     "script": s.script, "presenter": s.anchor_id or ctx.anchor()["name"],
+                     "presenter_title": s.presenter_title, "sources": s.sources, "sponsor_read": s.sponsor_read,
+                     "video": videos.get(s.slug), "risk": s.story.risk_score})
+    return rows
 
 
 def build_site(cfg: Settings, rundown: list[Segment], pulse: dict | None = None,
                videos: dict | None = None, show: dict | None = None,
                bookends: dict | None = None) -> Path:
-    pulse, videos, bookends = pulse or {}, dict(videos or {}), bookends or {}
-    out = cfg.site_out
+    ctx = Ctx(cfg, show, pulse, bookends)
+    out = ctx.out
+    out.mkdir(parents=True, exist_ok=True)
+    videos = dict(videos or {})
     vdir = out / "v"
-    if vdir.is_dir():  # pick up clips rendered by earlier/background studio passes
+    if vdir.is_dir():  # clips rendered by earlier / background studio passes
         for f in vdir.glob("*.mp4"):
             videos.setdefault(f.stem, f"/v/{f.name}")
-    (out / "s").mkdir(parents=True, exist_ok=True)
-    ads = AdBook()
-    side = ads.web_slot("sidebar")
-    cards = []
-    if "breaking" in bookends:
-        b = bookends["breaking"]
-        cards.append(_bookend_html(b, videos.get(b["slug"]), "breaking"))
-    if "open" in bookends:
-        b = bookends["open"]
-        cards.append(_bookend_html(b, videos.get(b["slug"]), "open"))
-    for i, seg in enumerate(rundown):
-        cards.append(_seg_card(seg, video=videos.get(seg.slug)))
-        if i == 2:
-            cards.append(ads.web_slot("inline", seg.story.desk))
-        (out / "s" / f"{seg.slug}.html").write_text(_page(
-            cfg, ads, f"{seg.story.title} | {cfg.site_name}",
-            _seg_card(seg, link_title=False, video=videos.get(seg.slug)), side, pulse))
-    if "close" in bookends:
-        b = bookends["close"]
-        cards.append(_bookend_html(b, videos.get(b["slug"]), "close"))
-    stamp = datetime.now(timezone.utc).strftime("%A %d %B %Y, %H:%M UTC")
-    show_name = html.escape(show["name"]) + " · " if show else ""
-    (out / "index.html").write_text(_page(
-        cfg, ads, cfg.site_name, f'<p class="by">{show_name}Edition of {stamp}</p>' + "".join(cards), side, pulse))
-    (out / "about.html").write_text(_page(cfg, ads, f"About | {cfg.site_name}",
-        "<article class='seg'><h2>About</h2><p>Gu Broadcasting Station is an AI-presented news "
-        "bulletin. Our anchors and reporters are AI-generated characters, not real people. Each segment "
-        "is an original rewrite of reporting from the outlets credited beneath it, with links to the "
-        f"original coverage. Sponsored messages are always labelled.</p>{_cast_html()}</article>", side, pulse))
-    (out / "advertise.html").write_text(_page(cfg, ads, f"Advertise | {cfg.site_name}",
-        "<article class='seg'><h2>Advertise with us</h2><p>On-air sponsor reads, pre-roll and "
-        "on-site placements. Contact: ads@YOURDOMAIN</p></article>", side, pulse))
-    (out / "feed.xml").write_text(_rss(cfg, rundown))
-    (out / "sitemap.xml").write_text(_sitemap(cfg, rundown))
-    if ads.ads_txt():
-        (out / "ads.txt").write_text(ads.ads_txt() + "\n")
+
+    store = PublishedStore(cfg.data_dir / "published.db")
+    store.upsert(_rows_from_rundown(ctx, rundown, videos, time.time()))
+    current = {s.slug for s in rundown}
+    ctx.articles = store.recent(ctx.site["archive_days"])
+    for a in ctx.articles:
+        a["video"] = a.get("video") or videos.get(a["slug"])
+        a["_current"] = a["slug"] in current
+    order = {s.slug: i for i, s in enumerate(rundown)}
+    cur = sorted([a for a in ctx.articles if a["_current"]], key=lambda a: order[a["slug"]])
+    ctx.articles = cur + [a for a in ctx.articles if not a["_current"]]
+    ctx.articles[len(cur):] = sorted(ctx.articles[len(cur):], key=lambda a: -a["ts"])
+
+    pdir = REPO / "assets" / "anchors"
+    for tid in ctx.talent:
+        src = pdir / f"{tid}.png"
+        if src.is_file():
+            dest = out / "img" / "people" / f"{tid}.png"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(src, dest)
+            ctx.portraits[tid] = f"/img/people/{tid}.png"
+
+    page_home(ctx)
+    page_sections(ctx)
+    page_latest_live(ctx)
+    for a in ctx.articles:
+        page_story(ctx, a)
+    page_video(ctx)
+    page_markets(ctx)
+    page_shows(ctx)
+    page_people(ctx)
+    page_archive(ctx)
+    page_search(ctx)
+    page_newsletter(ctx)
+    page_prose(ctx)
+    page_sitemap_html(ctx)
+    machine_files(ctx)
+
+    # hand-off for the studio renderer (not public; nginx denies it)
+    bk = bookends or {}
     stories = [{"kind": "story", "slug": s.slug, "title": s.story.title, "desk": s.story.desk,
                 "anchor": s.anchor_id, "presenter_title": s.presenter_title, "script": s.script,
                 "sources": s.sources, "sponsor_read": s.sponsor_read} for s in rundown]
-    order = ([bookends["breaking"]] if "breaking" in bookends else []) + \
-            ([bookends["open"]] if "open" in bookends else []) + stories + \
-            ([bookends["close"]] if "close" in bookends else [])
-    (out / "rundown.json").write_text(json.dumps(order, indent=1, ensure_ascii=False))
+    seq = ([bk["breaking"]] if "breaking" in bk else []) + ([bk["open"]] if "open" in bk else []) + stories + \
+          ([bk["close"]] if "close" in bk else [])
+    (out / "rundown.json").write_text(json.dumps(seq, indent=1, ensure_ascii=False))
     return out
-
-
-def _rss(cfg: Settings, rundown: list[Segment]) -> str:
-    items = "".join(
-        f"<item><title>{html.escape(s.story.title)}</title><link>{cfg.site_url}/s/{s.slug}.html</link>"
-        f"<guid>{cfg.site_url}/s/{s.slug}.html</guid><pubDate>{formatdate(s.story.ts)}</pubDate>"
-        f"<description>{html.escape(s.script)}</description></item>" for s in rundown)
-    return (f'<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>{html.escape(cfg.site_name)}</title>'
-            f"<link>{cfg.site_url}</link><description>AI-anchored world news</description>"
-            f"<lastBuildDate>{formatdate(time.time())}</lastBuildDate>{items}</channel></rss>")
-
-
-def _sitemap(cfg: Settings, rundown: list[Segment]) -> str:
-    urls = [f"{cfg.site_url}/"] + [f"{cfg.site_url}/s/{s.slug}.html" for s in rundown]
-    return ('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-            + "".join(f"<url><loc>{u}</loc></url>" for u in urls) + "</urlset>")
