@@ -25,8 +25,11 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 
 ## 2. Droplet + site
 
-- [ ] **T11 [ric]** Choose a domain and point DNS at the droplet.
-- [ ] **T12 [agent]** (blocked: T11) Replace `YOURDOMAIN` everywhere (nginx conf, `.env.example`, advertise page). Run `deploy/provision_droplet.sh` and certbot.
+- [x] **T11 [ric]** Domain bought: **gubs.ca** (2026-11-04).
+- [ ] **T11b [ric]** At the registrar, point DNS at the droplet: `A gubs.ca → <droplet IPv4>`, `A www → <droplet IPv4>` (plus `AAAA` if the droplet has IPv6). Check with `dig +short gubs.ca`.
+- [ ] **T11c [ric]** Set up email for @gubs.ca: forwarding is enough to start (registrar forwarding, Cloudflare Email Routing or ImprovMX) for news@, tips@, corrections@, ads@ and privacy@, all to your inbox. The site publishes these addresses. Add SPF/DMARC records once a sender exists (needed for T32 newsletter).
+- [x] **T12a [agent]** Domain wired in: nginx (apex canonical, www→apex, ACME path), `.env.example`, config defaults, site emails (done 2026-11-04).
+- [ ] **T12b [ric/agent]** (blocked: T11b, T13) On the droplet: `sudo DOMAIN=gubs.ca CERT_EMAIL=<you> deploy/provision_droplet.sh`. It bootstraps HTTP, gets the Let's Encrypt cert for gubs.ca + www, installs the HTTPS config and enables both timers. Then check `curl -I https://gubs.ca`.
 - [ ] **T13 [ric]** Add a read-only deploy key for the private `5protocol` submodule on the droplet. Put `PHONE_PUSH_KEY` in `/opt/gubroadcast/.env` for the market pulse.
 - [ ] **T14 [agent]** (blocked: T12) On the droplet, run `python -m gbs ingest` and check every feed in `gbs/newsdesk/feeds.py` returns items. Fix or replace dead RSS URLs and log any changes here. (They couldn't be verified from the build sandbox.)
 - [ ] **T15 [ric]** Set `GBS_LOCAL_NAME/LAT/LON` (Celeste's weather) and decide on traffic: the Open511 / DriveBC feed URL for `GBS_TRAFFIC_OPEN511_URL`.
@@ -55,7 +58,11 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 ## 5b. Site follow-ups
 
 - [ ] **T31 [ric]** Get the legal templates (`/privacy/`, `/terms/`, `/cookies/`) reviewed for your jurisdiction (`config/site.json`). Confirm the operator name and the promises they make (log retention, response times) before launch.
-- [ ] **T32 [agent]** Build The Gu Briefing sender. Pick a provider (Buttondown / Listmonk self-hosted), set `newsletter.action` in `config/site.json`, and add a weekday-morning job that emails the top stories with source links and an unsubscribe link. Until then, `/newsletter/` says "launching soon" and collects sign-ups by email.
+- [x] **T32 [agent]** The Gu Briefing built: issue composer, Kit + file providers, `gbs newsletter build|send`, weekday timer, sign-up/thanks/confirmed/guide pages, web archive of issues (2026-11-04). See `docs/NEWSLETTER.md`.
+- [ ] **T32a [ric]** Kit setup (docs/NEWSLETTER.md §1, §3): free account with news@gubs.ca, a **mailing address** for the footer (CASL), v4 API key in `.env`, double-opt-in form with the redirect URLs, form action URL into `config/site.json`.
+- [ ] **T32b [ric]** Domain authentication for gubs.ca in Kit: add its DKIM/return-path records plus a `_dmarc` TXT in Namecheap. Keep a single SPF record (§2).
+- [ ] **T32c [ric/agent]** Dry run: a week on `GBS_NEWSLETTER_PROVIDER=file`, read the outbox issues, then a self-test send on `kit`, then go live. Log the first send date in the Findings log.
+- [ ] **T32d [agent]** (when Kit Creator plan) Load welcome emails 2–3 as a Kit sequence; add a quarterly re-engagement and pruning job.
 - [ ] **T33 [agent]** Social share images: render a 1200x630 card per story (headline + Gu lower-third look, or a frame from the anchor clip) and add `og:image` / `twitter:image`.
 - [ ] **T34 [agent]** Burn-in captions on anchor clips (the script is the transcript), then update `/accessibility/` to drop the "known gaps" line.
 - [ ] **T35 [agent]** Self-host the two web fonts (Archivo, Source Serif 4) under `/assets/fonts/` so no request goes to Google, and update `/privacy/`.
@@ -81,6 +88,9 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 ## Findings log
 
 _Agents: append dated notes here (render timings, dead feeds, prompt changes)._
+
+- 2026-11-04: Newsletter platform = Kit free plan (10k subs, API on free). Beehiiv create-post API needs Max/Enterprise; Substack has no API.
+- 2026-11-04: Domain is gubs.ca. Public emails derive from GBS_SITE_URL's host (config/site.json `emails`).
 
 - 2026-11-04: Harold Yi added as lead anchor of Gu Morning and Gu Evening News, with a fixed signature open (see docs/NEWSROOM.md). Tessa Vale is now assistant anchor and Benji Powers morning co-anchor. When Harold's voice is designed in T7, check that it says the signature line straight.
 

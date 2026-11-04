@@ -169,6 +169,7 @@ nav.primary li:hover > .sub,nav.primary li:focus-within > .sub{display:block}
 .prose h2{font:800 24px/1.15 var(--sans);font-stretch:85%;margin:1.6em 0 .5em}
 .prose h3{font:700 19px/1.2 var(--sans);margin:1.4em 0 .4em}
 .prose a{text-decoration:underline;text-underline-offset:3px}
+.prose a.btn{text-decoration:none}
 .prose ul{padding-left:22px}
 .prose table{border-collapse:collapse;width:100%;font:400 15px/1.4 var(--sans);margin:1em 0}
 .prose th,.prose td{text-align:left;border-bottom:1px solid var(--rule);padding:9px 8px;vertical-align:top}
@@ -196,6 +197,8 @@ input[type=email],input[type=search],input[type=text]{font:400 17px/1 var(--sans
 .newsletter-band h2{font:800 24px/1.1 var(--sans);font-stretch:80%;margin:0 0 6px}
 .newsletter-band p{margin:0;color:var(--slate)}
 #results li{display:block}
+.issue{max-width:640px;border:1px solid var(--rule);padding:0 16px;background:#fff;color:#1b1f27}
+.prose ol li{margin:.6em 0}
 
 /* Footer */
 footer.site{margin-top:60px;background:var(--onair);color:#cfd3da;font-size:15px}

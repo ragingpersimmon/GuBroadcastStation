@@ -13,8 +13,11 @@
   },
   "newsletter": {
     "name": "The Gu Briefing",
-    "blurb": "The day's top stories in one short email each weekday morning. Launching soon.",
-    "action": ""
+    "blurb": "The day's top stories in one short email, weekday mornings at 6 a.m. Pacific. Every story links to its sources.",
+    "cadence": "Weekdays at 6 a.m. Pacific",
+    "action": "",
+    "email_field": "email_address",
+    "_note": "action = your Kit form's subscribe URL (from the form's HTML embed code), e.g. https://app.kit.com/forms/<FORM_ID>/subscriptions. Empty = sign up by email. In Kit, set the form's double opt-in ON, its confirmation redirect to https://gubs.ca/newsletter/confirmed/ and its success redirect to https://gubs.ca/newsletter/thanks/."
   },
   "social": {
     "YouTube": "",
