@@ -103,6 +103,66 @@ def write_open(cfg: Settings, show: dict, anchor: dict, rundown: list[Segment]) 
     return _try_llm(cfg, system, "Headlines:\n" + "\n".join(f"- {h}" for h in heads), fallback)
 
 
+# ---------------- Harold Yi's signature open ----------------
+
+def spoken(text: str, anchor: dict) -> str:
+    """On-screen text -> what the voice model reads ('GUUd' is said 'Good')."""
+    for written, said in (anchor.get("signature", {}).get("spoken") or {}).items():
+        text = text.replace(written, said)
+    return text
+
+
+def _variant_due(sig: dict, show: dict, now, state_path) -> dict | None:
+    """One cheesier variant per ISO week, on the Friday flagship open."""
+    if now is None or now.weekday() != sig.get("variant_day", 4):
+        return None
+    week = "%d-W%02d" % now.isocalendar()[:2]
+    try:
+        state = json.loads(state_path.read_text()) if state_path and state_path.exists() else {}
+    except Exception:
+        state = {}
+    if state.get("last_variant_week") == week:
+        return None
+    pool = [v for v in sig.get("variants", []) if v["daypart"] == show.get("daypart")]
+    if not pool:
+        return None
+    v = pool[now.isocalendar()[1] % len(pool)]
+    if state_path:
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(json.dumps({"last_variant_week": week, "text": v["text"]}))
+    return v
+
+
+def write_signature_open(cfg: Settings, show: dict, anchor: dict, rundown: list[Segment],
+                         now=None, state_path=None, allow_variant: bool = True) -> tuple[str, str]:
+    """Fixed signature + daypart + top-story tease. Only the tease is written by the LLM.
+    Returns (on-screen text, spoken text)."""
+    sig, daypart = anchor["signature"], show.get("daypart", "evening")
+    heads = [s.story.title.rstrip(".") for s in rundown[:3]]
+    serious = any(seg_sensitive(s) for s in rundown[:3])
+    variant = None if (serious or not allow_variant) else _variant_due(sig, show, now, state_path)
+    if variant:
+        first = variant["text"]
+    else:
+        greeting = (sig["serious_greeting"] if serious else sig["greeting"])[daypart]
+        first = f"{greeting} {sig['line']}"
+    lead_in = sig["lead_in"][daypart]
+    # template fallback keeps headline casing (proper nouns), so it reads as a list after a colon
+    fb_tease = (": " + "; ".join(heads[:-1]) + ("; and " if len(heads) > 1 else "") + heads[-1]) if heads \
+        else " the latest from around the world"
+    system = (f"{STANDARDS}\nYou write only the tease that completes the sentence '{lead_in} ...' for "
+              f"{anchor['name']}'s open of '{show['name']}'. 12 to 25 words, covering the headlines given in order, "
+              "adding no facts. " + ("Serious news: plain and measured, no wordplay. " if serious else
+                                     "Crisp; a light touch is fine, no puns on 'Gu'. ") +
+              f"Output only the words that follow '{lead_in}', ending with a period.")
+    tease = _try_llm(cfg, system, "Headlines:\n" + "\n".join(f"- {h}" for h in heads), fb_tease + ".")
+    if tease != fb_tease + ".":
+        tease = " " + tease.strip().removeprefix(lead_in).lstrip(" :,").rstrip()
+    tease = tease if tease.endswith((".", "!", "?")) else tease + "."
+    text = f"{first} {lead_in}{tease}"
+    return text, spoken(text, anchor)
+
+
 def write_close(cfg: Settings, show: dict, anchor: dict) -> str:
     fallback = f"That's {show['name']}. Sources for every story are on our site. I'm {anchor['name']}, and this is Gu."
     system = (f"{STANDARDS}\n{tone_instruction(anchor, False)}\n"

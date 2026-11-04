@@ -485,8 +485,8 @@ def show_when(show: dict) -> str:
     return f"{days}, {fmt(show['start'])} to {fmt(show['end'])}"
 
 
-SHOW_BLURBS = {"morning": "Wake up with the overnight headlines, the weather and your commute.",
-               "evening": "The day's defining stories, told straight, with the senior correspondents.",
+SHOW_BLURBS = {"morning": "Wake up with Harold Yi and Benji Powers: the overnight headlines, the weather and your commute.",
+               "evening": "The day's defining stories, told straight, with lead anchor Harold Yi and assistant anchor Tessa Vale.",
                "weekend": "The week's big stories, calmly explained.",
                "gucast": "A short update every 15 minutes, read by Gu's AI prime anchor."}
 
@@ -498,11 +498,15 @@ def page_shows(ctx: Ctx) -> None:
         live = s["id"] == ctx.show["id"]
         cards.append(f'<article class="showcard{" live" if live else ""}"><h2 class="hl hl-l"><a href="/shows/{s["id"]}/">{e(s["name"])}</a></h2>'
                      f'<p class="sched">{e(show_when(s))} ({e(str(ctx.tz))}){", on air now" if live else ""}</p>'
-                     f'<p>{e(SHOW_BLURBS.get(s["id"], ""))}</p><div class="person">{portrait(ctx, a["id"])}<div>'
-                     f'{person_link(ctx, a["name"])}<div class="t">{e(a["title"])}</div></div></div></article>')
+                     f'<p>{e(SHOW_BLURBS.get(s["id"], ""))}</p>' + "".join(
+                         f'<div class="person">{portrait(ctx, x["id"])}<div>{person_link(ctx, x["name"])}'
+                         f'<div class="t">{e(x["title"])}</div></div></div>'
+                         for x in [a] + ([ctx.talent[s["co_anchor"]]] if s.get("co_anchor") else [])) + '</article>')
         recent = [x for x in ctx.articles if x.get("show_id") == s["id"]][:20]
         body = (f'<header class="page-head"><h1>{e(s["name"])}</h1><p>{e(SHOW_BLURBS.get(s["id"], ""))}</p>'
-                f'<p class="sched">{e(show_when(s))}, {e(str(ctx.tz))} time. Presented by {person_link(ctx, a["name"])}.</p></header>'
+                f'<p class="sched">{e(show_when(s))}, {e(str(ctx.tz))} time. Presented by {person_link(ctx, a["name"])}'
+                + (f' with {person_link(ctx, ctx.talent[s["co_anchor"]]["name"])}' if s.get("co_anchor") else "")
+                + '.</p></header>'
                 + ('<p><a class="btn solid" href="/live/">Watch the current edition</a></p>' if live else "")
                 + (f'<h2 class="block-title">Recent stories on {e(s["name"])}</h2>{listing(ctx, recent)}' if recent
                    else empty(f"{s['name']} stories will appear here after its next edition.")))
@@ -520,6 +524,8 @@ def page_people(ctx: Ctx) -> None:
     hosted = defaultdict(list)
     for s in ctx.nr["shows"]:
         hosted[s["anchor"]].append(s)
+        if s.get("co_anchor"):
+            hosted[s["co_anchor"]].append(s)
     blocks = []
     for label, kinds in groups:
         ppl = [t for t in ctx.nr["talent"] if t["kind"] in kinds]
@@ -530,6 +536,10 @@ def page_people(ctx: Ctx) -> None:
             mine = [a for a in ctx.articles if a["presenter"] == t["name"]][:30]
             on_air = t["kind"] != "production"
             facts = []
+            if t.get("signature"):
+                facts.append("Opens every edition of " + ", ".join(
+                    f'<a href="/shows/{s["id"]}/">{e(s["name"])}</a>' for s in hosted[t["id"]] if s["anchor"] == t["id"])
+                    + " with the station's signature line")
             if hosted.get(t["id"]):
                 facts.append("Hosts " + ", ".join(f'<a href="/shows/{s["id"]}/">{e(s["name"])}</a>' for s in hosted[t["id"]]))
             if t.get("desks"):

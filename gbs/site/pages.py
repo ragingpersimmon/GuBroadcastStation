@@ -39,7 +39,7 @@ based on.</p>
 <h2>What Gu is</h2>
 <ul><li>A summary service. Gu does not send reporters into the field. Our stories rewrite and condense reporting
 by the outlets credited on each page, and we link to their original coverage.</li>
-<li>Presented by AI characters. Tessa Vale, NOVA, Lena Moravec and the rest of our cast
+<li>Presented by AI characters. Harold Yi, Tessa Vale, NOVA, Lena Moravec and the rest of our cast
 are fictional, AI-generated presenters. None of them is a real person. <a href="/people/">Meet the cast</a>.</li>
 <li>Always on. A new edition goes out about every 15 minutes, with flagship shows in the morning, evening and
 at weekends. <a href="/shows/">See the schedule</a>.</li></ul>
@@ -62,7 +62,8 @@ def standards(ctx):
             "The rules every Gu script follows, whoever presents it.",
             """<p>Gu's newsroom is automated, but its rules are not optional. Every script, whether it is a story,
 a show open, a breaking update or a sponsor message, is written under these standards. News director Margo Kessler's
-line sums them up: we don't punch down; we punch through.</p>
+line sums them up: we don't punch down; we punch through. Lead anchor Harold Yi's sign-on says the rest: we
+follow the story for your better insight.</p>
 <h2>Accuracy</h2>
 <ul><li>We state only what our sources report. No invented quotes, figures, names, places or speculation.</li>
 <li>When outlets disagree, we say so, or we wait.</li>

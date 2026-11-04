@@ -23,15 +23,15 @@ def at(y, m, d, hh, mm):
 
 def test_roster_complete():
     names = {t["name"] for t in NR["talent"]}
-    assert len(NR["talent"]) == 21
-    assert {"Tessa Vale", "NOVA", "ECHO", "Lena Moravec", "Arbi Ong"} <= names
+    assert len(NR["talent"]) == 22
+    assert {"Harold Yi", "Tessa Vale", "NOVA", "ECHO", "Lena Moravec", "Arbi Ong"} <= names
     assert all("heygen" in t for t in load_roster())            # every on-air talent renders
     assert not any(t["kind"] == "production" for t in load_roster())
 
 
 def test_show_clock():
-    assert current_show(NR, at(2026, 11, 4, 6, 30))["anchor"] == "benji"   # Wed morning
-    assert current_show(NR, at(2026, 11, 4, 18, 0))["anchor"] == "tessa"   # Wed evening
+    assert current_show(NR, at(2026, 11, 4, 6, 30))["anchor"] == "harold"  # Wed morning
+    assert current_show(NR, at(2026, 11, 4, 18, 0))["anchor"] == "harold"  # Wed evening
     assert current_show(NR, at(2026, 11, 7, 12, 0))["anchor"] == "nick"    # Saturday
     assert current_show(NR, at(2026, 11, 4, 13, 0))["anchor"] == "nova"    # weekday midday
     assert current_show(NR, at(2026, 11, 4, 2, 0))["anchor"] == "nova"     # overnight
@@ -91,7 +91,7 @@ def test_full_edition(tmp_path, monkeypatch):
     order = json.loads((cfg.site_out / "rundown.json").read_text())
     kinds = [e["kind"] for e in order]
     assert kinds[0] == "breaking" and order[0]["anchor"] == "ECHO"      # risk 0.8 >= 0.7
-    assert kinds[1] == "open" and order[1]["anchor"] == "Tessa Vale"    # evening show
+    assert kinds[1] == "open" and order[1]["anchor"] == "Harold Yi"     # evening lead anchor
     assert kinds[-1] == "close"
     presenters = {e["desk"]: e["anchor"] for e in order if e["kind"] == "story"}
     assert presenters["politics"] == "Marcus Bell" and presenters["sports"] == 'Troy "Coach" Maddox'
@@ -102,7 +102,7 @@ def test_full_edition(tmp_path, monkeypatch):
     assert "fictional, AI-generated" in (cfg.site_out / "about" / "index.html").read_text()
     # edition persisted for the background studio pass, and the site picks up rendered clips
     show, bookends, pulse, segs = cli.load_edition(cfg)
-    assert show["anchor"] == "tessa" and len(segs) == len([e for e in order if e["kind"] == "story"])
+    assert show["anchor"] == "harold" and len(segs) == len([e for e in order if e["kind"] == "story"])
     (cfg.site_out / "v").mkdir()
     (cfg.site_out / "v" / f"{segs[0].slug}.mp4").write_bytes(b"x")
     from gbs.site.build import build_site

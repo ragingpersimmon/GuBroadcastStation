@@ -17,7 +17,7 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 - [ ] **T3 [agent]** (blocked: T2) Run `python -m gbs comfy-tokenize <export> --kind anchor_talking|tts|tts_design|anchor_portrait` for each export. Fix any tokens it warns about by hand, and commit the templates. Done when `python -m gbs newsroom` no longer lists missing workflows.
 - [ ] **T4 [ric]** Say how the 27B is served (Ollama / llama.cpp / LM Studio / vLLM), what OS kwon9000 runs, and whether the droplet can ssh to it.
 - [ ] **T5 [agent]** (blocked: T4) Set up the GPU handoff: `GBS_GPU_HANDOFF` plus the exact `GBS_LLM_UNLOAD_CMD` / `GBS_LLM_RELOAD_CMD` in `.env.example` and docs, then test the unload → render → reload cycle.
-- [ ] **T6 [agent+ric]** (blocked: T3) Run `python -m gbs comfy-portraits`. Ric picks the faces and the agent re-rolls rejects (`--force`, after a new seed or `look_prompt` in `config/newsroom.json`). Commit the locked `assets/anchors/*.png`.
+- [ ] **T6 [agent+ric]** (blocked: T3) Run `python -m gbs comfy-portraits`. Ric picks the faces (15, including lead anchor Harold Yi) and the agent re-rolls rejects (`--force`, after a new seed or `look_prompt` in `config/newsroom.json`). Commit the locked `assets/anchors/*.png`.
 - [ ] **T7 [agent+ric]** (blocked: T6) Run `python -m gbs comfy-voices`, Ric approves each voice, then commit `assets/voices/*`.
 - [ ] **T8 [agent]** (blocked: T7) Time one 40 s clip end to end and record the number here. Then set `render_top` / `render_quarters` per show in `newsroom.json` so a day's clips fit in GPU time with headroom. Today's schedule asks for ~87 clips per weekday, which is probably too many.
 - [ ] **T9 [agent]** (blocked: T8) Check the ffmpeg lower third and ticker on a real InfiniteTalk clip (fonts, safe areas, `drawtext` escaping of quotes and colons in headlines). Fix `gbs/studio/render.py` as needed.
@@ -81,5 +81,7 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 ## Findings log
 
 _Agents: append dated notes here (render timings, dead feeds, prompt changes)._
+
+- 2026-11-04: Harold Yi added as lead anchor of Gu Morning and Gu Evening News, with a fixed signature open (see docs/NEWSROOM.md). Tessa Vale is now assistant anchor and Benji Powers morning co-anchor. When Harold's voice is designed in T7, check that it says the signature line straight.
 
 - 2026-11-04: Site build verified on Python 3.11 and 3.13; screenshots checked at 1366 px and 390 px. Run `pytest tests/test_site.py` after any template change; it fails on any broken internal link.

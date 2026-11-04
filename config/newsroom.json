@@ -3,11 +3,81 @@
  "station": "Gu Broadcasting Station",
  "talent": [
   {
+   "id": "harold",
+   "name": "Harold Yi",
+   "kind": "anchor",
+   "title": "Senior Correspondent & Lead Anchor",
+   "style": "Steady, authoritative, the voice of the station. Says Gu clean and confident; the signature line is delivered straight, with no wink and no smirk. The cheese lives in the writing, not the delivery.",
+   "sample": "GUUd morning, listeners. This is Harold Yi at Gu Broadcasting Station, where we follow the story for your better insight.",
+   "signature": {
+    "_note": "Fixed open for Harold's shows. greeting + line never change; only the daypart and the top-story tease do. One variant per ISO week, on a Friday flagship open, never when a lead story is serious. 'GUUd' is written on screen and spoken as 'Good'.",
+    "line": "This is Harold Yi at Gu Broadcasting Station, where we follow the story for your better insight.",
+    "greeting": {
+     "morning": "GUUd morning, listeners.",
+     "evening": "Good evening, listeners."
+    },
+    "serious_greeting": {
+     "morning": "Good morning, listeners.",
+     "evening": "Good evening, listeners."
+    },
+    "lead_in": {
+     "morning": "Today we have",
+     "evening": "Tonight we have"
+    },
+    "spoken": {
+     "GUUd": "Good"
+    },
+    "variant_day": 4,
+    "variants": [
+     {
+      "daypart": "morning",
+      "text": "GUUd morning, listeners. This is Harold Yi at Gu Broadcasting Station, where we follow the story so you get the better insight—and the fuller picture."
+     },
+     {
+      "daypart": "evening",
+      "text": "Good evening, listeners. This is Harold Yi at Gu Broadcasting Station, where we don't just follow the story—we follow it through."
+     },
+     {
+      "daypart": "morning",
+      "text": "GUUd morning, listeners. This is Harold Yi at Gu Broadcasting Station, where the story comes first and the insight comes with it."
+     },
+     {
+      "daypart": "evening",
+      "text": "Good evening, listeners. This is Harold Yi at Gu Broadcasting Station, where we follow the story for your better insight—and we don't stop at the headline."
+     },
+     {
+      "daypart": "morning",
+      "text": "GUUd morning, listeners. This is Harold Yi at Gu Broadcasting Station, where we follow the story, check the facts, and bring you the better insight."
+     }
+    ]
+   },
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, man in his late 40s, charcoal three-piece suit, silver-rimmed glasses, composed and authoritative, flagship news desk with city lights behind, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 509999,
+    "ref_image": "assets/anchors/harold.png",
+    "voice_ref": "assets/voices/harold.wav",
+    "voice_prompt": "warm authoritative senior male news anchor, mid-low pitch, measured and confident, sincere, no irony in the delivery",
+    "motion_prompt": "a senior news anchor speaking to camera, composed, minimal head movement, natural blinking, straight face, steady framing"
+   }
+  },
+  {
    "id": "tessa",
    "name": "Tessa Vale",
    "kind": "anchor",
-   "title": "Chief Anchor, Gu Evening News",
-   "style": "Crisp, slightly wry, keeps the cheese from curdling.",
+   "title": "Assistant Anchor, Gu Evening News",
+   "style": "Crisp, slightly wry, keeps the cheese from curdling. Reads the anchor desk alongside Harold Yi.",
    "sample": "Good evening. The forecast packs a punch, City Hall trades blows, and one local bakery is rising—literally. This is Gu.",
    "heygen": {
     "character_type": "avatar",
@@ -34,7 +104,7 @@
    "id": "benji",
    "name": "Benji Powers",
    "kind": "anchor",
-   "title": "Morning Anchor",
+   "title": "Morning Co-Anchor",
    "style": "Caffeinated, friendly, thrives on chaos.",
    "sample": "Rise and shine, Gu crew. Grab your coffee—we've got traffic, temps, and a llama on the loose.",
    "heygen": {
@@ -489,7 +559,7 @@
   {
    "id": "morning",
    "name": "Gu Morning",
-   "anchor": "benji",
+   "anchor": "harold",
    "days": [
     0,
     1,
@@ -507,12 +577,14 @@
    "local_segments": [
     "weather",
     "traffic"
-   ]
+   ],
+   "co_anchor": "benji",
+   "daypart": "morning"
   },
   {
    "id": "evening",
    "name": "Gu Evening News",
-   "anchor": "tessa",
+   "anchor": "harold",
    "days": [
     0,
     1,
@@ -529,7 +601,9 @@
    ],
    "local_segments": [
     "weather"
-   ]
+   ],
+   "co_anchor": "tessa",
+   "daypart": "evening"
   },
   {
    "id": "weekend",
