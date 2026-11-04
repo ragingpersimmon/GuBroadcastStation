@@ -56,7 +56,7 @@ class Ctx:
         self.show = show or next(s for s in self.nr["shows"] if s.get("default"))
         self.tz = ZoneInfo(os.getenv("GBS_TZ", "America/Vancouver"))
         self.ads = AdBook()
-        self.host = urlparse(cfg.site_url).hostname or "example.com"
+        self.host = urlparse(cfg.site_url).hostname or "gubs.ca"
         self.emails = {k: f"{v}@{self.host}" for k, v in self.site["emails"].items()}
         self.talent = {t["id"]: t for t in self.nr["talent"]}
         self.by_name = {t["name"]: t for t in self.nr["talent"]}

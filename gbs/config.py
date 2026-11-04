@@ -27,7 +27,7 @@ class Settings:
 
     data_dir: Path = field(default_factory=lambda: Path(_env("GBS_DATA_DIR", "data")))
     site_out: Path = field(default_factory=lambda: Path(_env("GBS_SITE_OUT", "public")))
-    site_url: str = field(default_factory=lambda: _env("GBS_SITE_URL", "https://example.com").rstrip("/"))
+    site_url: str = field(default_factory=lambda: _env("GBS_SITE_URL", "https://gubs.ca").rstrip("/"))
     site_name: str = field(default_factory=lambda: _env("GBS_SITE_NAME", "Gu Broadcasting Station"))
 
     # LLM (OpenAI-compatible). Same env names as 5protocol core/llm_brain

@@ -25,8 +25,11 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 
 ## 2. Droplet + site
 
-- [ ] **T11 [ric]** Choose a domain and point DNS at the droplet.
-- [ ] **T12 [agent]** (blocked: T11) Replace `YOURDOMAIN` everywhere (nginx conf, `.env.example`, advertise page). Run `deploy/provision_droplet.sh` and certbot.
+- [x] **T11 [ric]** Domain bought: **gubs.ca** (2026-11-04).
+- [ ] **T11b [ric]** At the registrar, point DNS at the droplet: `A gubs.ca → <droplet IPv4>`, `A www → <droplet IPv4>` (plus `AAAA` if the droplet has IPv6). Check with `dig +short gubs.ca`.
+- [ ] **T11c [ric]** Set up email for @gubs.ca: forwarding is enough to start (registrar forwarding, Cloudflare Email Routing or ImprovMX) for news@, tips@, corrections@, ads@ and privacy@, all to your inbox. The site publishes these addresses. Add SPF/DMARC records once a sender exists (needed for T32 newsletter).
+- [x] **T12a [agent]** Domain wired in: nginx (apex canonical, www→apex, ACME path), `.env.example`, config defaults, site emails (done 2026-11-04).
+- [ ] **T12b [ric/agent]** (blocked: T11b, T13) On the droplet: `sudo DOMAIN=gubs.ca CERT_EMAIL=<you> deploy/provision_droplet.sh`. It bootstraps HTTP, gets the Let's Encrypt cert for gubs.ca + www, installs the HTTPS config and enables both timers. Then check `curl -I https://gubs.ca`.
 - [ ] **T13 [ric]** Add a read-only deploy key for the private `5protocol` submodule on the droplet. Put `PHONE_PUSH_KEY` in `/opt/gubroadcast/.env` for the market pulse.
 - [ ] **T14 [agent]** (blocked: T12) On the droplet, run `python -m gbs ingest` and check every feed in `gbs/newsdesk/feeds.py` returns items. Fix or replace dead RSS URLs and log any changes here. (They couldn't be verified from the build sandbox.)
 - [ ] **T15 [ric]** Set `GBS_LOCAL_NAME/LAT/LON` (Celeste's weather) and decide on traffic: the Open511 / DriveBC feed URL for `GBS_TRAFFIC_OPEN511_URL`.
@@ -81,6 +84,8 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 ## Findings log
 
 _Agents: append dated notes here (render timings, dead feeds, prompt changes)._
+
+- 2026-11-04: Domain is gubs.ca. Public emails derive from GBS_SITE_URL's host (config/site.json `emails`).
 
 - 2026-11-04: Harold Yi added as lead anchor of Gu Morning and Gu Evening News, with a fixed signature open (see docs/NEWSROOM.md). Tessa Vale is now assistant anchor and Benji Powers morning co-anchor. When Harold's voice is designed in T7, check that it says the signature line straight.
 
