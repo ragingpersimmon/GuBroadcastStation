@@ -98,8 +98,8 @@ def test_full_edition(tmp_path, monkeypatch):
     sponsored = [e for e in order if e.get("sponsor_read")]
     assert sponsored and all(e["sponsor_read"].startswith("Sponsored by") for e in sponsored)
     index = (cfg.site_out / "index.html").read_text()
-    assert "Gu Evening News" in index and "BREAKING" in index
-    assert "fictional, AI-generated" in (cfg.site_out / "about.html").read_text()
+    assert "Gu Evening News" in index and 'class="breaking"' in index
+    assert "fictional, AI-generated" in (cfg.site_out / "about" / "index.html").read_text()
     # edition persisted for the background studio pass, and the site picks up rendered clips
     show, bookends, pulse, segs = cli.load_edition(cfg)
     assert show["anchor"] == "tessa" and len(segs) == len([e for e in order if e["kind"] == "story"])

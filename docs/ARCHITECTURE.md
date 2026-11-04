@@ -32,7 +32,7 @@ Cast, shows and desk assignments: **[NEWSROOM.md](NEWSROOM.md)**.
 | 3a | **HeyGen Avatar III anchors** (optional, paid) — anchor video + voice from script, parallel render, lower third + ticker burned in | droplet → api.heygen.com | `gbs/anchors/heygen_client.py`, `cli.render_rundown` | **working**; needs API key + avatar/voice ids |
 | 3b | **ComfyUI studio** — design anchor faces (upload as HeyGen Photo Avatars), fallback talking heads, b-roll | kwon9000 | `gbs/anchors/comfy_client.py`, `gbs/studio/` | client done; workflows to build |
 | 4 | **Monetization** — on-air sponsor reads, pre-roll, web ad slots, ads.txt | droplet | `gbs/monetization/`, `config/sponsors.json` | working (house ad); network off |
-| 5 | **Site** — static edition pages, RSS, sitemap, about/AI disclosure, advertise | droplet nginx | `gbs/site/`, `deploy/` | working |
+| 5 | **Site**: full news site (sections, stories, video, shows, people, markets, archive, search, standards, legal, ads), with history in `published.db` | droplet nginx | `gbs/site/` (`build.py` page map, `pages.py` prose, `assets.py` CSS/JS), `config/site.json` | working |
 | 6 | **Ops** — systemd timer, provisioning, nginx | droplet | `deploy/` | ready |
 
 ## Repos you need

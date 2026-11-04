@@ -76,7 +76,9 @@ def test_bridge_to_site(tmp_path):
 
     out = build_site(cfg, rundown, pulse={"regime": "calm"})
     index = (out / "index.html").read_text()
-    assert "guardian.example/9" in index and "AI-generated" in index
+    assert "AI-generated" in index
+    quake_pages = list((out / "story").rglob(f"{quake.slug}.html"))
+    assert quake_pages and "guardian.example/9" in quake_pages[0].read_text()
     assert (out / "feed.xml").exists() and (out / "sitemap.xml").exists()
     assert len(json.loads((out / "rundown.json").read_text())) == 3
     # trading-bot state files untouched: bridge writes only under GBS data dir

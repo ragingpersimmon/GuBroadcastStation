@@ -37,7 +37,7 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 
 - [ ] **T18 [agent]** Add a human review queue: the lead story in each flagship show waits for Ric's approve/edit/kill before it renders (a simple web page or CLI `gbs review`). Needed before applying to ad networks.
 - [ ] **T19 [agent]** Make the same-event clustering in `editorial/rundown.py` stronger, e.g. local embeddings with a Jaccard fallback. Add tests with real headline pairs.
-- [ ] **T20 [agent]** Add per-story archive pages and desk index pages (`/desk/politics.html` …) so the site builds history for SEO.
+- [x] **T20 [agent]** Per-story pages, section/sub-section pages, daily archive, people, shows, search, sitemaps (done 2026-11-04, see `gbs/site/build.py`).
 - [ ] **T21 [agent]** Add illustrative B-roll stills per story (`broll_still` workflow). They must never look like a real photo of a real event. Label them "Illustration".
 
 ## 4. Money
@@ -52,9 +52,18 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 - [ ] **T26 [agent]** Write a YouTube uploader for flagship-show clips (YouTube Data API, upload as unlisted for review first). The AI-content disclosure flag must be on.
 - [ ] **T27 [agent]** Write a social posting helper for `public/social/*.mp4` (Mina Cho's desk): captions plus a source link in the description, with Ric approving each post.
 
+## 5b. Site follow-ups
+
+- [ ] **T31 [ric]** Get the legal templates (`/privacy/`, `/terms/`, `/cookies/`) reviewed for your jurisdiction (`config/site.json`). Confirm the operator name and the promises they make (log retention, response times) before launch.
+- [ ] **T32 [agent]** Build The Gu Briefing sender. Pick a provider (Buttondown / Listmonk self-hosted), set `newsletter.action` in `config/site.json`, and add a weekday-morning job that emails the top stories with source links and an unsubscribe link. Until then, `/newsletter/` says "launching soon" and collects sign-ups by email.
+- [ ] **T33 [agent]** Social share images: render a 1200x630 card per story (headline + Gu lower-third look, or a frame from the anchor clip) and add `og:image` / `twitter:image`.
+- [ ] **T34 [agent]** Burn-in captions on anchor clips (the script is the transcript), then update `/accessibility/` to drop the "known gaps" line.
+- [ ] **T35 [agent]** Self-host the two web fonts (Archivo, Source Serif 4) under `/assets/fonts/` so no request goes to Google, and update `/privacy/`.
+- [ ] **T36 [agent]** Set `social` handles in `config/site.json` once accounts exist (footer shows only filled ones).
+
 ## 6. Housekeeping
 
-- [ ] **T28 [ric]** Review and merge PR #1 (`groundwork/news-bridge`) into `main`.
+- [x] **T28 [ric]** Review and merge PR #1 (`groundwork/news-bridge`) into `main`.
 - [ ] **T29 [agent]** Add CI (GitHub Actions): checkout with the submodule, run `pytest -q`.
 - [ ] **T30 [agent]** Bump the `vendor/5protocol` pin when 5protocol's news pipeline changes, and re-run tests.
 
@@ -67,8 +76,10 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 - [x] Newsroom: 21 staff, show clock, assignment desk, ECHO breaking
 - [x] Local anchor engine (InfiniteTalk + OmniVoice via ComfyUI), GPU handoff hooks, background studio timer
 - [x] HeyGen Avatar III engine (optional, paid)
-- [x] Static site, RSS, sitemap, AI-character disclosure, deploy units
+- [x] Full news site: home, 15 section/sub-section pages + feeds, story pages (NewsArticle JSON-LD, sources, share), live edition, video, markets, shows, people, archive, search, newsletter, about/standards/AI/corrections/sources, contact/tips, advertise/guidelines, privacy/terms/cookies/accessibility, HTML + XML + news sitemaps, robots, manifest, 404. A link-crawl test means no internal link resolves to nothing.
 
 ## Findings log
 
 _Agents: append dated notes here (render timings, dead feeds, prompt changes)._
+
+- 2026-11-04: Site build verified on Python 3.11 and 3.13; screenshots checked at 1366 px and 390 px. Run `pytest tests/test_site.py` after any template change; it fails on any broken internal link.
