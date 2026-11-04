@@ -1,6 +1,6 @@
 # Gu Broadcast Station
 
-AI-anchored world news. Headlines come in through **5protocol's news pipeline**, get clustered and rewritten into anchor reads, are presented by ComfyUI-designed anchors rendered over StarNet, and are published on the droplet with sponsor reads and ad slots.
+AI-anchored world news. Headlines come in through **5protocol's news pipeline**, get clustered and rewritten into anchor reads, are presented by **HeyGen Avatar III** anchors (faces optionally designed in ComfyUI on StarNet), and are published on the droplet with sponsor reads and ad slots.
 
 See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the full parts list and repos.
 
@@ -18,8 +18,9 @@ python -m gbs ingest      # world feeds -> 5protocol NewsFeedPoller -> data/stor
 python -m gbs pulse       # live 5protocol market regime (tailnet)
 python -m gbs rundown     # rundown + scripts + static site -> $GBS_SITE_OUT
 python -m gbs run         # ingest + rundown (systemd timer runs this every 30 min)
-python -m gbs comfy-ping  # check ComfyUI on kwon9000
-python -m gbs studio      # render anchor videos (GPU box)
+python -m gbs heygen-list # HeyGen avatar + voice ids for config/anchors.json
+python -m gbs studio      # render anchor videos for the latest rundown (HeyGen by default)
+python -m gbs comfy-ping  # check ComfyUI on kwon9000 (ANCHOR_ENGINE=comfy)
 ```
 
 Tests: `pytest -q` (offline; uses local RSS files through the real 5protocol poller).
@@ -29,7 +30,7 @@ Tests: `pytest -q` (offline; uses local RSS files through the real 5protocol pol
 ```
 gbs/newsdesk/     5protocol bridge, world feed map, story store
 gbs/editorial/    rundown builder, LLM scriptwriter (Strata, template fallback)
-gbs/anchors/      ComfyUI client, roster, workflows/ (API-format JSON)
+gbs/anchors/      HeyGen Avatar III client, ComfyUI client, roster, workflows/
 gbs/studio/       TTS, talking head, ffmpeg compose
 gbs/monetization/ sponsors, on-air reads, web ad slots
 gbs/site/         static site builder

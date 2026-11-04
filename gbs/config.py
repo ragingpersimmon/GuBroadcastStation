@@ -39,6 +39,17 @@ class Settings:
     # ComfyUI on the 5090 box (StarNet / Tailscale)
     comfy_url: str = field(default_factory=lambda: _env("COMFY_URL", "http://kwon9000:8188").rstrip("/"))
 
+    # Anchor engine: "heygen" (HeyGen Avatar III, default) or "comfy"
+    anchor_engine: str = field(default_factory=lambda: _env("ANCHOR_ENGINE", "heygen").lower())
+    heygen_base: str = field(default_factory=lambda: _env("HEYGEN_API_BASE", "https://api.heygen.com"))
+    heygen_api_key: str = field(default_factory=lambda: _env("HEYGEN_API_KEY"))
+    # HEYGEN_TEST=1 -> watermarked test renders that don't burn credits
+    heygen_test: bool = field(default_factory=lambda: _env("HEYGEN_TEST", "1") not in ("0", "false", "no"))
+
+    # Render anchor video for the top N segments each edition (HeyGen bills per minute)
+    render_top: int = field(default_factory=lambda: int(_env("GBS_RENDER_TOP", "3")))
+    render_on_run: bool = field(default_factory=lambda: _env("GBS_RENDER", "0") in ("1", "true", "yes"))
+
     rundown_size: int = field(default_factory=lambda: int(_env("GBS_RUNDOWN_SIZE", "12")))
 
     @property

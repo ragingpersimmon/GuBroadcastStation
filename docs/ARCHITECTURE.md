@@ -12,8 +12,11 @@
   droplet ◄──────── [5] SITE  static HTML, RSS, sitemap, ads.txt          │
      ▲                     rundown.json ───────────────┐                  │
      │                                                 ▼                  │
-     └── rsync public/v/*.mp4 ◄── [3] ANCHOR STUDIO on kwon9000 (RTX 5090)│
-                                   TTS → ComfyUI talking head → ffmpeg    │
+     ├── public/v/*.mp4 ◄──── [3a] HeyGen Avatar III (default, cloud API)  │
+     │                          script+voice → anchor video → ffmpeg      │
+     └── rsync public/v/*.mp4 ◄── [3b] ComfyUI studio on kwon9000 (5090)  │
+                                   faces for HeyGen photo avatars,        │
+                                   fallback talking heads, b-roll         │
                       └───────────────────────────────────────────────────┘
 ```
 
@@ -24,7 +27,8 @@
 | 1 | **Newsdesk** — world feed ingest, dedupe, urgency score | droplet | `gbs/newsdesk/` → imports `vendor/5protocol/news_ingest.py` | **working** |
 | 1b | **Market Pulse** — live 5protocol regime for the markets banner | droplet → nebulizer:8699 | `fiveprotocol_bridge.market_pulse` | working (needs `PHONE_PUSH_KEY`) |
 | 2 | **Editorial** — cluster same-event coverage, rank, desk-balance, write anchor reads | droplet (LLM on kwon9000) | `gbs/editorial/` | working (template fallback w/o LLM) |
-| 3 | **Anchor studio** — anchor design, TTS, lip-sync, lower thirds, ticker | kwon9000 | `gbs/anchors/`, `gbs/studio/` | client + compose done; **workflows to build** |
+| 3a | **HeyGen Avatar III anchors** (default) — anchor video + voice from script, parallel render, lower third + ticker burned in | droplet → api.heygen.com | `gbs/anchors/heygen_client.py`, `cli.render_rundown` | **working**; needs API key + avatar/voice ids |
+| 3b | **ComfyUI studio** — design anchor faces (upload as HeyGen Photo Avatars), fallback talking heads, b-roll | kwon9000 | `gbs/anchors/comfy_client.py`, `gbs/studio/` | client done; workflows to build |
 | 4 | **Monetization** — on-air sponsor reads, pre-roll, web ad slots, ads.txt | droplet | `gbs/monetization/`, `config/sponsors.json` | working (house ad); network off |
 | 5 | **Site** — static edition pages, RSS, sitemap, about/AI disclosure, advertise | droplet nginx | `gbs/site/`, `deploy/` | working |
 | 6 | **Ops** — systemd timer, provisioning, nginx | droplet | `deploy/` | ready |
@@ -49,6 +53,17 @@
 - Video ad serving (VAST pre-roll): Google IMA SDK or Video.js + `videojs-ima`.
 - Distribution: YouTube Data API uploader for each edition (second revenue line).
 
+## HeyGen Avatar III setup
+
+1. HeyGen account with API access → API key → `HEYGEN_API_KEY` in `.env`.
+2. Pick the anchor look, one of:
+   - **Public / Instant Avatar** → `character_type: "avatar"`, `avatar_id`.
+   - **Your own face from ComfyUI** → generate the anchor portrait on kwon9000, upload it in HeyGen as a Photo Avatar → `character_type: "talking_photo"`, `talking_photo_id`.
+3. `python -m gbs heygen-list` → copy `avatar_id` / `voice_id` into each anchor's `heygen` block in `config/anchors.json`.
+4. Keep `HEYGEN_TEST=1` (watermarked, no credits) until the output looks right, then set `HEYGEN_TEST=0`.
+5. `GBS_RENDER=1` renders inside every `gbs run`; `GBS_RENDER_TOP` limits video to the top N segments. HeyGen API bills by minute of video: ~40 s per read × 3 segments × 48 editions/day ≈ 96 min/day. Check this against your plan before raising either number.
+6. `ANCHOR_ENGINE=comfy` switches back to the ComfyUI path at any time.
+
 ## 5protocol hook — what was reused, what wasn't
 
 - Reused as a library (no copies): concurrent fetch with hard timeouts, HTML scrubbing, sha256 dedupe with persisted seen-set, `news_signal_engine` risk score (used as an urgency signal for ranking).
@@ -66,8 +81,8 @@
 
 ## Next build steps
 
-1. On kwon9000: install ComfyUI + nodes above; design the three anchors with `anchor_portrait`; export `anchor_talking.json` in API format into `gbs/anchors/workflows/`.
-2. `python -m gbs comfy-ping` from the droplet over Tailscale.
-3. Studio loop on kwon9000: pull `rundown.json`, `python -m gbs studio`, `rsync public/v/ droplet:/var/www/gubroadcast/v/`. (Then wire `videos=` into `build_site`.)
+1. HeyGen: API key, fill avatar/voice ids (`heygen-list`), test renders with `HEYGEN_TEST=1 python -m gbs studio`.
+2. Optional custom faces: ComfyUI on kwon9000 → `anchor_portrait` → upload to HeyGen as Photo Avatars.
+3. Turn on `GBS_RENDER=1` once a test edition looks right.
 4. Point a domain at the droplet, `deploy/provision_droplet.sh`, certbot.
 5. Sell first direct sponsor; enable ad network after ~30 days of editions.
