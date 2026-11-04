@@ -43,10 +43,10 @@ def _page(cfg: Settings, ads: AdBook, title: str, body: str, side: str, pulse: d
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{html.escape(title)}</title><link rel="alternate" type="application/rss+xml" href="/feed.xml">
 <style>{CSS}</style>{ads.head_tag()}</head><body>
-<header><a class="logo" href="/" style="color:inherit;text-decoration:none"><b>GU</b> BROADCAST STATION</a>{pulse_html}</header>
+<header><a class="logo" href="/" style="color:inherit;text-decoration:none"><b>GU</b> BROADCASTING STATION</a>{pulse_html}</header>
 {ads.web_slot("top")}
 <main><div>{body}</div><div>{side}</div></main>
-<footer>Presented by AI-generated anchors. Stories are rewritten summaries of reporting by the credited outlets; follow source links for original coverage. <a href="/about.html" style="color:inherit">About</a> · <a href="/advertise.html" style="color:inherit">Advertise</a></footer>
+<footer>Presented by AI-generated anchors and reporters. Stories are rewritten summaries of reporting by the credited outlets; follow source links for original coverage. <a href="/about.html" style="color:inherit">About</a> · <a href="/advertise.html" style="color:inherit">Advertise</a></footer>
 </body></html>"""
 
 
@@ -64,17 +64,44 @@ def _seg_card(seg: Segment, link_title: bool = True, video: str | None = None) -
     sponsor = f'<p class="by"><em>{html.escape(seg.sponsor_read)}</em></p>' if seg.sponsor_read else ""
     script = "".join(f"<p>{html.escape(p)}</p>" for p in seg.script.split("\n") if p.strip())
     return (f'<article class="seg"><div class="desk">{html.escape(seg.story.desk)}</div><h2>{title}</h2>'
-            f'<div class="by">Read by {html.escape(seg.anchor_id)}</div>{vid}{script}{sponsor}{_sources_html(seg)}</article>')
+            f'<div class="by">{html.escape(seg.anchor_id)}{(" · " + html.escape(seg.presenter_title)) if seg.presenter_title else ""}</div>{vid}{script}{sponsor}{_sources_html(seg)}</article>')
+
+
+def _bookend_html(b: dict, video: str | None, cls: str) -> str:
+    vid = f'<video controls preload="none" src="{html.escape(video)}"></video>' if video else ""
+    label = {"open": "", "breaking": "<div class='desk' style='color:var(--accent)'>BREAKING</div>",
+             "close": ""}.get(b["kind"], "")
+    return (f'<article class="seg {cls}">{label}<div class="by">{html.escape(b["anchor"])} · '
+            f'{html.escape(b["presenter_title"])}</div>{vid}<p>{html.escape(b["script"])}</p></article>')
+
+
+def _cast_html() -> str:
+    try:
+        from gbs.anchors.roster import load_newsroom
+        nr = load_newsroom()
+    except Exception:
+        return ""
+    on_air = [t for t in nr["talent"] if t.get("kind") != "production"]
+    rows = "".join(f"<li><strong>{html.escape(t['name'])}</strong> — {html.escape(t['title'])}</li>" for t in on_air)
+    return ("<h3>On air</h3><p>Every on-air presenter below is a fictional, AI-generated character "
+            f"(HeyGen avatar, AI voice). None is a real person.</p><ul>{rows}</ul>")
 
 
 def build_site(cfg: Settings, rundown: list[Segment], pulse: dict | None = None,
-               videos: dict | None = None) -> Path:
-    pulse, videos = pulse or {}, videos or {}
+               videos: dict | None = None, show: dict | None = None,
+               bookends: dict | None = None) -> Path:
+    pulse, videos, bookends = pulse or {}, videos or {}, bookends or {}
     out = cfg.site_out
     (out / "s").mkdir(parents=True, exist_ok=True)
     ads = AdBook()
     side = ads.web_slot("sidebar")
     cards = []
+    if "breaking" in bookends:
+        b = bookends["breaking"]
+        cards.append(_bookend_html(b, videos.get(b["slug"]), "breaking"))
+    if "open" in bookends:
+        b = bookends["open"]
+        cards.append(_bookend_html(b, videos.get(b["slug"]), "open"))
     for i, seg in enumerate(rundown):
         cards.append(_seg_card(seg, video=videos.get(seg.slug)))
         if i == 2:
@@ -82,14 +109,18 @@ def build_site(cfg: Settings, rundown: list[Segment], pulse: dict | None = None,
         (out / "s" / f"{seg.slug}.html").write_text(_page(
             cfg, ads, f"{seg.story.title} | {cfg.site_name}",
             _seg_card(seg, link_title=False, video=videos.get(seg.slug)), side, pulse))
+    if "close" in bookends:
+        b = bookends["close"]
+        cards.append(_bookend_html(b, videos.get(b["slug"]), "close"))
     stamp = datetime.now(timezone.utc).strftime("%A %d %B %Y, %H:%M UTC")
+    show_name = html.escape(show["name"]) + " · " if show else ""
     (out / "index.html").write_text(_page(
-        cfg, ads, cfg.site_name, f'<p class="by">Edition of {stamp}</p>' + "".join(cards), side, pulse))
+        cfg, ads, cfg.site_name, f'<p class="by">{show_name}Edition of {stamp}</p>' + "".join(cards), side, pulse))
     (out / "about.html").write_text(_page(cfg, ads, f"About | {cfg.site_name}",
-        "<article class='seg'><h2>About</h2><p>Gu Broadcast Station is an AI-presented world news "
-        "bulletin. Our anchors are AI-generated characters, not real people. Each segment is an "
-        "original rewrite of reporting from the outlets credited beneath it, with links to the "
-        "original coverage.</p></article>", side, pulse))
+        "<article class='seg'><h2>About</h2><p>Gu Broadcasting Station is an AI-presented news "
+        "bulletin. Our anchors and reporters are AI-generated characters, not real people. Each segment "
+        "is an original rewrite of reporting from the outlets credited beneath it, with links to the "
+        f"original coverage. Sponsored messages are always labelled.</p>{_cast_html()}</article>", side, pulse))
     (out / "advertise.html").write_text(_page(cfg, ads, f"Advertise | {cfg.site_name}",
         "<article class='seg'><h2>Advertise with us</h2><p>On-air sponsor reads, pre-roll and "
         "on-site placements. Contact: ads@YOURDOMAIN</p></article>", side, pulse))
@@ -97,10 +128,13 @@ def build_site(cfg: Settings, rundown: list[Segment], pulse: dict | None = None,
     (out / "sitemap.xml").write_text(_sitemap(cfg, rundown))
     if ads.ads_txt():
         (out / "ads.txt").write_text(ads.ads_txt() + "\n")
-    (out / "rundown.json").write_text(json.dumps(
-        [{"slug": s.slug, "title": s.story.title, "desk": s.story.desk, "anchor": s.anchor_id,
-          "script": s.script, "sources": s.sources, "sponsor_read": s.sponsor_read} for s in rundown],
-        indent=1))
+    stories = [{"kind": "story", "slug": s.slug, "title": s.story.title, "desk": s.story.desk,
+                "anchor": s.anchor_id, "presenter_title": s.presenter_title, "script": s.script,
+                "sources": s.sources, "sponsor_read": s.sponsor_read} for s in rundown]
+    order = ([bookends["breaking"]] if "breaking" in bookends else []) + \
+            ([bookends["open"]] if "open" in bookends else []) + stories + \
+            ([bookends["close"]] if "close" in bookends else [])
+    (out / "rundown.json").write_text(json.dumps(order, indent=1, ensure_ascii=False))
     return out
 
 

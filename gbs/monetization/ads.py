@@ -24,13 +24,16 @@ class AdBook:
         self._rot += 1
         return s
 
-    def assign_on_air(self, rundown: list[Segment]) -> None:
+    def assign_on_air(self, rundown: list[Segment], write_fn=None) -> None:
+        """Every Nth segment carries a labelled sponsor read. write_fn(sponsor, seg)
+        lets the presenter voice it (scriptwriter.write_sponsor_read)."""
         every = max(1, int(self.cfg.get("on_air_every_n_segments", 4)))
         for i, seg in enumerate(rundown):
             if i and i % every == 0:
                 s = self._pick(seg.story.desk)
                 if s and s.get("on_air"):
-                    seg.sponsor_read = f"Sponsored by {s['name']}. {s['on_air']}"
+                    seg.sponsor_read = (write_fn(s, seg) if write_fn
+                                        else f"Sponsored by {s['name']}. {s['on_air']}")
 
     def web_slot(self, slot: str, desk: str = "world") -> str:
         net = self.cfg.get("ad_network", {})

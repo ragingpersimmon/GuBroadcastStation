@@ -1,0 +1,459 @@
+{
+ "_note": "Gu Broadcasting Station newsroom. Every on-air character is AI-rendered (HeyGen Avatar III); fill heygen ids via `python -m gbs heygen-list`. heygen.speed is the operator (Kai Love) read-speed knob. style/sample shape tone only -- never facts. shows use GBS_TZ local time; render_quarters = which quarter-hours (0-3) of each hour render video.",
+ "station": "Gu Broadcasting Station",
+ "talent": [
+  {
+   "id": "tessa",
+   "name": "Tessa Vale",
+   "kind": "anchor",
+   "title": "Chief Anchor, Gu Evening News",
+   "style": "Crisp, slightly wry, keeps the cheese from curdling.",
+   "sample": "Good evening. The forecast packs a punch, City Hall trades blows, and one local bakery is rising—literally. This is Gu.",
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   }
+  },
+  {
+   "id": "benji",
+   "name": "Benji Powers",
+   "kind": "anchor",
+   "title": "Morning Anchor",
+   "style": "Caffeinated, friendly, thrives on chaos.",
+   "sample": "Rise and shine, Gu crew. Grab your coffee—we've got traffic, temps, and a llama on the loose.",
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   }
+  },
+  {
+   "id": "nick",
+   "name": "Nick Laba",
+   "kind": "anchor",
+   "title": "Weekend Anchor",
+   "style": "Calm, trustworthy, the adult in the room.",
+   "sample": "Good weekend. We begin with the story everyone's talking about—and yes, it involves a trampoline.",
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   }
+  },
+  {
+   "id": "nova",
+   "name": "NOVA",
+   "kind": "ai_anchor",
+   "title": "AI Prime Anchor",
+   "style": "Polished synthetic delivery; fast, neutral, always available.",
+   "sample": "I'm Nova. Here's your Gu-cast: headlines with impact, updated every fifteen minutes.",
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 0.9,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   }
+  },
+  {
+   "id": "echo",
+   "name": "ECHO",
+   "kind": "ai_anchor",
+   "title": "AI Breaking/Weather Anchor",
+   "style": "Urgent but not alarmist; handles bumpers and updates.",
+   "sample": "Breaking update from Gu: power restored downtown; crews remain on scene.",
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   }
+  },
+  {
+   "id": "marcus",
+   "name": "Marcus Bell",
+   "kind": "reporter",
+   "title": "Politics Reporter",
+   "style": "City Hall veteran, dry wit.",
+   "sample": "At City Hall, the budget didn't just pass—it delivered a one-two punch.",
+   "desks": [
+    "politics"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   }
+  },
+  {
+   "id": "lena",
+   "name": "Lena Moravec",
+   "kind": "reporter",
+   "title": "International Correspondent",
+   "style": "Calm under pressure; global desk lead.",
+   "sample": "From the world desk, a ceasefire holds for a second night—fragile, but holding.",
+   "desks": [
+    "world",
+    "americas",
+    "europe",
+    "asia",
+    "mideast",
+    "africa"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   }
+  },
+  {
+   "id": "rafael",
+   "name": "Rafael Tertelbach",
+   "kind": "reporter",
+   "title": "Business Reporter",
+   "style": "Makes markets sound like a contact sport.",
+   "sample": "Markets opened with a jolt—tech up, energy down, your wallet still confused.",
+   "desks": [
+    "business",
+    "markets"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   }
+  },
+  {
+   "id": "juno",
+   "name": "Juno Park",
+   "kind": "reporter",
+   "title": "Technology Reporter",
+   "style": "Sharp, skeptical, fluent in AI hype.",
+   "sample": "A new AI model promises fewer hallucinations—and yes, it still can't find your keys.",
+   "desks": [
+    "tech",
+    "science"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   }
+  },
+  {
+   "id": "dana",
+   "name": "Dana Ruiz",
+   "kind": "reporter",
+   "title": "Investigative/Consumer Reporter",
+   "style": "Dogged, receipt-checking, never blinks.",
+   "sample": "We followed the paper trail. What we found will make you check your receipt twice.",
+   "desks": [
+    "consumer"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   }
+  },
+  {
+   "id": "celeste",
+   "name": "Celeste Storm",
+   "kind": "reporter",
+   "title": "Meteorologist",
+   "style": "Cheesy name, serious forecast.",
+   "sample": "Gu-cast: sunshine early, punchy storms late. Secure the patio cushions.",
+   "desks": [
+    "weather"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   }
+  },
+  {
+   "id": "flip",
+   "name": "Flip Torres",
+   "kind": "reporter",
+   "title": "Traffic Reporter",
+   "style": "Fast, cheerful, helicopter-energy.",
+   "sample": "If you're heading downtown, brace for a slowdown—two lanes closed, one coffee needed.",
+   "desks": [
+    "traffic"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   }
+  },
+  {
+   "id": "lola",
+   "name": "Lola Sparks",
+   "kind": "reporter",
+   "title": "Entertainment Reporter",
+   "style": "Glamorous, gossipy, harmless fun.",
+   "sample": "Hollywood brought the drama last night—and the after-party brought more.",
+   "desks": [
+    "entertainment"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   }
+  },
+  {
+   "id": "coach",
+   "name": "Troy \"Coach\" Maddox",
+   "kind": "reporter",
+   "title": "Sports Reporter",
+   "style": "Loud, lovable, still reliving his glory days.",
+   "sample": "The underdogs delivered a knockout. Coach here—yes, I'm still yelling.",
+   "desks": [
+    "sports"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   }
+  },
+  {
+   "id": "kai",
+   "name": "Kai Love",
+   "kind": "production",
+   "title": "AI Anchor Operator/Producer",
+   "style": "Human wrangler for the AI talent.",
+   "sample": "Nova, slow the read by 10%; let the sponsor bumper breathe."
+  },
+  {
+   "id": "margo",
+   "name": "Margo Kessler",
+   "kind": "production",
+   "title": "News Director",
+   "style": "Sets tone; protects credibility.",
+   "sample": "We don't punch down; we punch through."
+  },
+  {
+   "id": "priya",
+   "name": "Priya Sati",
+   "kind": "production",
+   "title": "Executive Producer",
+   "style": "Runs the rundown; keeps everyone honest.",
+   "sample": "Tighten the open, protect the sponsor read, and give the senior correspondent room to land the close."
+  },
+  {
+   "id": "dex",
+   "name": "Dex Okafor",
+   "kind": "production",
+   "title": "Assignment Desk Editor",
+   "style": "Air-traffic control for coverage.",
+   "sample": "Desk to all units: storm cell moving east; Lena, take international; Marcus, City Hall; Dana, consumer angle."
+  },
+  {
+   "id": "mina",
+   "name": "Mina Cho",
+   "kind": "production",
+   "title": "Digital/Social Producer",
+   "style": "Clips, captions, and brand-safe chaos.",
+   "sample": "Clip it, caption it, Gu it."
+  },
+  {
+   "id": "owen",
+   "name": "Owen Pike",
+   "kind": "production",
+   "title": "Video Editor",
+   "style": "Fixes audio, timing, and occasionally the puns.",
+   "sample": "I can fix the audio, but I can't fix the pun."
+  },
+  {
+   "id": "arbi",
+   "name": "Arbi Ong",
+   "kind": "production",
+   "title": "Sponsorship Integration Producer",
+   "style": "Makes ads feel native without breaking trust.",
+   "sample": "Sponsor read in three, two—make it punchy but legal."
+  }
+ ],
+ "shows": [
+  {
+   "id": "morning",
+   "name": "Gu Morning",
+   "anchor": "benji",
+   "days": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "start": "05:00",
+   "end": "10:00",
+   "render_top": 4,
+   "render_quarters": [
+    0,
+    2
+   ],
+   "local_segments": [
+    "weather",
+    "traffic"
+   ]
+  },
+  {
+   "id": "evening",
+   "name": "Gu Evening News",
+   "anchor": "tessa",
+   "days": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "start": "16:00",
+   "end": "20:00",
+   "render_top": 4,
+   "render_quarters": [
+    0,
+    2
+   ],
+   "local_segments": [
+    "weather"
+   ]
+  },
+  {
+   "id": "weekend",
+   "name": "Gu Weekend",
+   "anchor": "nick",
+   "days": [
+    5,
+    6
+   ],
+   "start": "07:00",
+   "end": "20:00",
+   "render_top": 3,
+   "render_quarters": [
+    0
+   ],
+   "local_segments": [
+    "weather"
+   ]
+  },
+  {
+   "id": "gucast",
+   "name": "Gu-cast",
+   "anchor": "nova",
+   "default": true,
+   "render_top": 1,
+   "render_quarters": [
+    0
+   ],
+   "local_segments": []
+  }
+ ],
+ "breaking": {
+  "anchor": "echo",
+  "risk_threshold": 0.7,
+  "on_regime": [
+   "crisis"
+  ]
+ }
+}

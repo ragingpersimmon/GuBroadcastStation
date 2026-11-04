@@ -28,7 +28,7 @@ class Settings:
     data_dir: Path = field(default_factory=lambda: Path(_env("GBS_DATA_DIR", "data")))
     site_out: Path = field(default_factory=lambda: Path(_env("GBS_SITE_OUT", "public")))
     site_url: str = field(default_factory=lambda: _env("GBS_SITE_URL", "https://example.com").rstrip("/"))
-    site_name: str = field(default_factory=lambda: _env("GBS_SITE_NAME", "Gu Broadcast Station"))
+    site_name: str = field(default_factory=lambda: _env("GBS_SITE_NAME", "Gu Broadcasting Station"))
 
     # LLM (OpenAI-compatible). Same env names as 5protocol core/llm_brain
     # so Strata over the tailnet / strata_tunnel.py just works.
@@ -46,8 +46,8 @@ class Settings:
     # HEYGEN_TEST=1 -> watermarked test renders that don't burn credits
     heygen_test: bool = field(default_factory=lambda: _env("HEYGEN_TEST", "1") not in ("0", "false", "no"))
 
-    # Render anchor video for the top N segments each edition (HeyGen bills per minute)
-    render_top: int = field(default_factory=lambda: int(_env("GBS_RENDER_TOP", "3")))
+    # Render anchor video for the top N rundown entries (0 = per-show render_top in newsroom.json)
+    render_top: int = field(default_factory=lambda: int(_env("GBS_RENDER_TOP", "0")))
     render_on_run: bool = field(default_factory=lambda: _env("GBS_RENDER", "0") in ("1", "true", "yes"))
 
     rundown_size: int = field(default_factory=lambda: int(_env("GBS_RUNDOWN_SIZE", "12")))

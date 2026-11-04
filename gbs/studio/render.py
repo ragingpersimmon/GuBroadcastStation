@@ -40,12 +40,12 @@ def _esc(t: str) -> str:
 
 
 def compose_cmd(anchor_mp4: Path, out_mp4: Path, headline: str, anchor_name: str,
-                ticker: str, preroll: Path | None = None) -> list[str]:
+                ticker: str, preroll: Path | None = None, title: str = "") -> list[str]:
     """ffmpeg command: lower third + scrolling ticker (+ optional sponsor pre-roll)."""
     vf = (
         "drawbox=y=ih*0.74:w=iw:h=ih*0.14:color=black@0.65:t=fill,"
         f"drawtext=text='{_esc(headline[:80])}':x=40:y=h*0.755:fontsize=h/24:fontcolor=white,"
-        f"drawtext=text='{_esc(anchor_name)} · Gu Broadcast Station':x=40:y=h*0.82:fontsize=h/36:fontcolor=0xF2C14E,"
+        f"drawtext=text='{_esc(anchor_name)}{(' · ' + _esc(title)) if title else ''}':x=40:y=h*0.82:fontsize=h/36:fontcolor=0xF2C14E,"
         "drawbox=y=ih*0.93:w=iw:h=ih*0.07:color=0x8B0000@0.9:t=fill,"
         f"drawtext=text='{_esc(ticker)}':y=h*0.945:x=w-mod(t*120\\,w+tw):fontsize=h/32:fontcolor=white"
     )

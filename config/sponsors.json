@@ -4,11 +4,11 @@
   "sponsors": [
     {
       "id": "house_promo",
-      "name": "Gu Broadcast Station",
+      "name": "Gu Broadcasting Station",
       "active": true,
       "desks": [],
-      "on_air": "This broadcast is supported by viewers like you. Advertise with Gu Broadcast Station at our sponsors page.",
-      "web": {"headline": "Advertise on Gu Broadcast Station", "body": "Reach a global news audience.", "url": "/advertise.html"},
+      "on_air": "This broadcast is supported by viewers like you. Advertise with Gu Broadcasting Station at our sponsors page.",
+      "web": {"headline": "Advertise on Gu Broadcasting Station", "body": "Reach a global news audience.", "url": "/advertise.html"},
       "preroll_video": null
     }
   ],

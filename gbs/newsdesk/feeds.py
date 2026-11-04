@@ -31,9 +31,20 @@ WORLD_FEEDS = {
     "tech:ars": "https://feeds.arstechnica.com/arstechnica/index",
     "science:bbc_science": "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml",
     "science:nasa": "https://www.nasa.gov/rss/dyn/breaking_news.rss",
+    # Beat desks (newsroom.json assigns each to a reporter)
+    "politics:npr_politics": "https://feeds.npr.org/1014/rss.xml",
+    "politics:guardian_politics": "https://www.theguardian.com/politics/rss",
+    "politics:cbc_politics": "https://www.cbc.ca/webfeed/rss/rss-politics",
+    "business:cbc_business": "https://www.cbc.ca/webfeed/rss/rss-business",
+    "consumer:guardian_money": "https://www.theguardian.com/money/rss",
+    "entertainment:bbc_entertainment": "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml",
+    "entertainment:guardian_culture": "https://www.theguardian.com/culture/rss",
+    "sports:bbc_sport": "https://feeds.bbci.co.uk/sport/rss.xml",
+    "sports:cbc_sports": "https://www.cbc.ca/webfeed/rss/rss-sports",
 }
 
-DESKS = ["world", "americas", "europe", "asia", "mideast", "africa", "business", "tech", "science"]
+DESKS = ["world", "americas", "europe", "asia", "mideast", "africa", "politics", "business",
+         "consumer", "tech", "science", "entertainment", "sports", "weather", "traffic"]
 
 
 def desk_of(source_key: str) -> str:

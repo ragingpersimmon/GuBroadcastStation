@@ -29,7 +29,8 @@ class Segment:
     """A rundown slot: one story (plus related coverage) ready for an anchor."""
     story: Story
     related: list = field(default_factory=list)   # other Story objects on the same event
-    anchor_id: str = ""
+    anchor_id: str = ""      # presenter display name (reporter for the desk, or show anchor)
+    presenter_title: str = ""
     script: str = ""
     sponsor_read: Optional[str] = None
 

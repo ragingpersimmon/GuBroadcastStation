@@ -1,4 +1,6 @@
-# Gu Broadcast Station — architecture & parts list
+# Gu Broadcasting Station — architecture & parts list
+
+Cast, shows and desk assignments: **[NEWSROOM.md](NEWSROOM.md)**.
 
 ```
                       ┌─────────────── StarNet (Tailscale) ───────────────┐
@@ -59,9 +61,9 @@
 2. Pick the anchor look, one of:
    - **Public / Instant Avatar** → `character_type: "avatar"`, `avatar_id`.
    - **Your own face from ComfyUI** → generate the anchor portrait on kwon9000, upload it in HeyGen as a Photo Avatar → `character_type: "talking_photo"`, `talking_photo_id`.
-3. `python -m gbs heygen-list` → copy `avatar_id` / `voice_id` into each anchor's `heygen` block in `config/anchors.json`.
+3. `python -m gbs heygen-list` → copy `avatar_id` / `voice_id` into each on-air talent's `heygen` block in `config/newsroom.json` (14 characters).
 4. Keep `HEYGEN_TEST=1` (watermarked, no credits) until the output looks right, then set `HEYGEN_TEST=0`.
-5. `GBS_RENDER=1` renders inside every `gbs run`; `GBS_RENDER_TOP` limits video to the top N segments. HeyGen API bills by minute of video: ~40 s per read × 3 segments × 48 editions/day ≈ 96 min/day. Check this against your plan before raising either number.
+5. `GBS_RENDER=1` renders inside every `gbs run`; per-show `render_top` / `render_quarters` set how much gets video (`GBS_RENDER_TOP` overrides). HeyGen API bills by minute of video. With the default show clock (newsroom.json `render_top` / `render_quarters`), a weekday is about 87 clips × ~40 s ≈ 58 min of video. Check this against your plan before raising either number.
 6. `ANCHOR_ENGINE=comfy` switches back to the ComfyUI path at any time.
 
 ## 5protocol hook — what was reused, what wasn't

@@ -68,9 +68,10 @@ def test_bridge_to_site(tmp_path):
     assert len(rundown) == 3  # two quake reports merged into one segment
     quake = next(s for s in rundown if "earthquake" in s.story.title.lower())
     assert len(quake.sources) == 2
+    lena = {"name": "Lena Moravec", "title": "International Correspondent", "style": "Calm.", "sample": "x"}
     for seg in rundown:
-        seg.anchor_id = "Mina Gu"
-        seg.script = write_script(cfg, seg, "Mina Gu")
+        seg.anchor_id, seg.presenter_title = lena["name"], lena["title"]
+        seg.script = write_script(cfg, seg, lena)
         assert "according to" in seg.script
 
     out = build_site(cfg, rundown, pulse={"regime": "calm"})

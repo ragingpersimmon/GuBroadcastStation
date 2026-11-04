@@ -5,7 +5,7 @@ Avatar III is the engine behind HeyGen's standard v2 generate endpoint:
     GET  https://api.heygen.com/v1/video_status.get?video_id=...
 HeyGen does the voice too (voice.type="text"), so no local TTS is needed.
 
-Each anchor in config/anchors.json carries a `heygen` block:
+Each anchor in config/newsroom.json carries a `heygen` block:
     {"character_type": "avatar" | "talking_photo",
      "avatar_id": "...",              # public / instant avatar (type avatar)
      "talking_photo_id": "...",       # photo avatar (e.g. ComfyUI-designed face)
@@ -50,7 +50,7 @@ class HeyGenClient:
             raise HeyGenError(f"HeyGen error: {out['error']}")
         return out.get("data") or {}
 
-    # -- discovery (use once to fill config/anchors.json) --
+    # -- discovery (use once to fill config/newsroom.json) --
     def list_avatars(self) -> list[dict]:
         return self._req("GET", "/v2/avatars").get("avatars", [])
 

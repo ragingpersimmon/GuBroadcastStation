@@ -5,7 +5,8 @@
   rundown    build + script the rundown and publish the static site
   run        ingest + rundown in one go (what the systemd timer calls)
   studio     render anchor videos for the latest rundown (ANCHOR_ENGINE=heygen|comfy)
-  heygen-list  list HeyGen avatars + voices to fill config/anchors.json
+  newsroom   show who's on air now and the desk assignments
+  heygen-list  list HeyGen avatars + voices to fill config/newsroom.json
   comfy-ping check ComfyUI on StarNet
 """
 from __future__ import annotations
@@ -37,41 +38,73 @@ def cmd_pulse(cfg) -> int:
 
 
 def cmd_rundown(cfg) -> int:
-    from gbs.anchors.roster import anchor_for_desk, load_roster
+    from gbs.anchors.roster import (by_id, current_show, load_newsroom, now_local,
+                                    presenter_for_desk, should_render)
     from gbs.editorial.rundown import build_rundown
-    from gbs.editorial.scriptwriter import write_script
+    from gbs.editorial import scriptwriter as sw
+    from gbs.models import Segment
     from gbs.monetization.ads import AdBook
     from gbs.newsdesk.fiveprotocol_bridge import market_pulse
+    from gbs.newsdesk.local import LOCAL
     from gbs.newsdesk.store import StoryStore
     from gbs.site.build import build_site
 
+    nr = load_newsroom()
+    now = now_local()
+    show = current_show(nr, now)
+    anchor = by_id(nr, show["anchor"])
     store = StoryStore(cfg.db_path)
     stories = store.recent(hours=12)
     if not stories:
         print("no fresh stories -- run `ingest` first")
         return 1
     rundown = build_rundown(stories, size=cfg.rundown_size)
-    roster = load_roster()
+
+    # local desks for this show (weather -> Celeste, traffic -> Flip), slotted after the lead
+    for i, name in enumerate(show.get("local_segments", [])):
+        st = LOCAL[name]() if name in LOCAL else None
+        if st:
+            rundown.insert(min(len(rundown), 2 + i), Segment(story=st))
+
+    # assignment desk: each story goes to the reporter who owns its desk
     for seg in rundown:
-        anchor = anchor_for_desk(seg.story.desk, roster)
-        seg.anchor_id = anchor["name"]
-        seg.script = write_script(cfg, seg, anchor["name"])
-    AdBook().assign_on_air(rundown)
+        p = presenter_for_desk(seg.story.desk, nr, anchor)
+        seg.anchor_id, seg.presenter_title = p["name"], p["title"]
+        seg.script = sw.write_script(cfg, seg, p)
+
+    by_name = {t["name"]: t for t in nr["talent"]}
+    AdBook().assign_on_air(rundown, write_fn=lambda sp, seg: sw.write_sponsor_read(cfg, by_name[seg.anchor_id], sp))
     pulse = market_pulse(cfg)
+
+    def _bk(kind, talent, script, title):
+        return {"kind": kind, "slug": f"{kind}-{show['id']}-{now:%Y%m%d-%H%M}", "title": title,
+                "desk": "", "anchor": talent["name"], "presenter_title": talent["title"],
+                "script": script, "sources": [], "sponsor_read": None}
+
+    bookends = {"open": _bk("open", anchor, sw.write_open(cfg, show, anchor, rundown), show["name"]),
+                "close": _bk("close", anchor, sw.write_close(cfg, show, anchor), show["name"])}
+    brk = nr.get("breaking", {})
+    hot = next((s for s in rundown if s.story.risk_score >= brk.get("risk_threshold", 1.1)), None)
+    if hot is None and pulse.get("regime") in brk.get("on_regime", []):
+        hot = next((s for s in rundown if s.story.desk in ("business", "markets")), None)
+    if hot is not None:
+        echo = by_id(nr, brk["anchor"])
+        bookends["breaking"] = _bk("breaking", echo, sw.write_breaking(cfg, echo, hot), hot.story.title)
+
     videos = {}
-    if cfg.render_on_run:
-        build_site(cfg, rundown, pulse=pulse)  # writes rundown.json for the renderer
-        videos = render_rundown(cfg, json.loads((cfg.site_out / "rundown.json").read_text()),
-                                top=cfg.render_top)
-    out = build_site(cfg, rundown, pulse=pulse, videos=videos)
+    if cfg.render_on_run and should_render(show, now):
+        build_site(cfg, rundown, pulse=pulse, show=show, bookends=bookends)  # writes rundown.json
+        top = cfg.render_top or show.get("render_top", 1)
+        videos = render_rundown(cfg, json.loads((cfg.site_out / "rundown.json").read_text()), top=top)
+    out = build_site(cfg, rundown, pulse=pulse, videos=videos, show=show, bookends=bookends)
     store.mark_used([s.story.item_hash for s in rundown] +
                     [r.item_hash for s in rundown for r in s.related])
-    print(f"published {len(rundown)} segments -> {out}")
+    print(f"{show['name']} ({anchor['name']}): published {len(rundown)} segments -> {out}")
     return 0
 
 
 def _ticker(rundown: list[dict]) -> str:
-    return "   \u2022   ".join(s["title"] for s in rundown)
+    return "   \u2022   ".join(s["title"] for s in rundown if s.get("kind", "story") == "story")
 
 
 def render_rundown(cfg, rundown: list[dict], top: int) -> dict:
@@ -133,19 +166,45 @@ def render_rundown(cfg, rundown: list[dict], top: int) -> dict:
             continue
         final = vdir / f"{seg['slug']}.mp4"
         if shutil.which("ffmpeg"):
-            subprocess.run(compose_cmd(raw, final, seg["title"], seg["anchor"], ticker), check=True)
+            subprocess.run(compose_cmd(raw, final, seg["title"], seg["anchor"], ticker,
+                                       title=seg.get("presenter_title", "")), check=True)
         else:
             shutil.copy(raw, final)
         out[seg["slug"]] = f"/v/{seg['slug']}.mp4"
         print("rendered", final)
+        from gbs.studio.social import eligible, social_cut_cmd
+        if shutil.which("ffmpeg") and eligible(seg):
+            sdir = cfg.site_out / "social"
+            sdir.mkdir(parents=True, exist_ok=True)
+            subprocess.run(social_cut_cmd(final, sdir / f"{seg['slug']}.mp4", seg["title"]), check=False)
     return out
 
 
 def cmd_studio(cfg) -> int:
     rundown = json.loads((cfg.site_out / "rundown.json").read_text())
-    done = render_rundown(cfg, rundown, top=cfg.render_top)
-    print(f"rendered {len(done)}/{min(len(rundown), cfg.render_top)} segments with {cfg.anchor_engine}")
+    top = cfg.render_top or 3
+    done = render_rundown(cfg, rundown, top=top)
+    print(f"rendered {len(done)}/{min(len(rundown), top)} segments with {cfg.anchor_engine}")
     return 0 if done else 1
+
+
+def cmd_newsroom(cfg) -> int:
+    from gbs.anchors.roster import by_id, current_show, load_newsroom, now_local, should_render
+    nr = load_newsroom()
+    now = now_local()
+    show = current_show(nr, now)
+    a = by_id(nr, show["anchor"])
+    print(f"{now:%a %H:%M %Z}  ON AIR: {show['name']} with {a['name']} "
+          f"(video this edition: {'yes' if should_render(show, now) else 'no'})")
+    print("\nassignment desk:")
+    for t in nr["talent"]:
+        if t.get("desks"):
+            print(f"  {t['name']:<24} {', '.join(t['desks'])}")
+    missing = [t["name"] for t in nr["talent"] if "heygen" in t
+               and not (t["heygen"].get("avatar_id") or t["heygen"].get("talking_photo_id"))]
+    if missing:
+        print("\nno HeyGen avatar yet:", ", ".join(missing))
+    return 0
 
 
 def cmd_heygen_list(cfg) -> int:
@@ -167,7 +226,7 @@ def cmd_heygen_list(cfg) -> int:
 def main(argv=None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     p = argparse.ArgumentParser(prog="gbs")
-    p.add_argument("command", choices=["ingest", "pulse", "rundown", "run", "studio", "comfy-ping", "heygen-list"])
+    p.add_argument("command", choices=["ingest", "pulse", "rundown", "run", "studio", "comfy-ping", "heygen-list", "newsroom"])
     a = p.parse_args(argv)
     cfg = settings()
     if a.command == "ingest":
@@ -181,6 +240,8 @@ def main(argv=None) -> int:
         return cmd_rundown(cfg)
     if a.command == "studio":
         return cmd_studio(cfg)
+    if a.command == "newsroom":
+        return cmd_newsroom(cfg)
     if a.command == "heygen-list":
         return cmd_heygen_list(cfg)
     if a.command == "comfy-ping":
