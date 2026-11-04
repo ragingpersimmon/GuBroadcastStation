@@ -1,0 +1,571 @@
+{
+ "_note": "Gu Broadcasting Station newsroom. Every on-air character is AI-rendered. Default engine ANCHOR_ENGINE=comfy (local InfiniteTalk + TTS on the 5090) uses the `comfy` block; ANCHOR_ENGINE=heygen uses the `heygen` block. heygen.speed is the operator (Kai Love) read-speed knob. style/sample shape tone only -- never facts. shows use GBS_TZ local time; render_quarters = which quarter-hours (0-3) of each hour render video.",
+ "station": "Gu Broadcasting Station",
+ "talent": [
+  {
+   "id": "tessa",
+   "name": "Tessa Vale",
+   "kind": "anchor",
+   "title": "Chief Anchor, Gu Evening News",
+   "style": "Crisp, slightly wry, keeps the cheese from curdling.",
+   "sample": "Good evening. The forecast packs a punch, City Hall trades blows, and one local bakery is rising—literally. This is Gu.",
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, woman in her 40s, sharp tailored charcoal blazer, shoulder-length dark hair, evening news desk, warm key light, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510000,
+    "ref_image": "assets/anchors/tessa.png",
+    "voice_ref": "assets/voices/tessa.wav",
+    "voice_prompt": "confident female news anchor, mid-range, crisp diction, faintly wry, measured pace",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
+   }
+  },
+  {
+   "id": "benji",
+   "name": "Benji Powers",
+   "kind": "anchor",
+   "title": "Morning Anchor",
+   "style": "Caffeinated, friendly, thrives on chaos.",
+   "sample": "Rise and shine, Gu crew. Grab your coffee—we've got traffic, temps, and a llama on the loose.",
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, man in his early 30s, rolled-sleeve light blue shirt, bright morning-show set with coffee mug, friendly smile, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510001,
+    "ref_image": "assets/anchors/benji.png",
+    "voice_ref": "assets/voices/benji.wav",
+    "voice_prompt": "upbeat young male morning-show host, energetic, warm, slightly fast",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
+   }
+  },
+  {
+   "id": "nick",
+   "name": "Nick Laba",
+   "kind": "anchor",
+   "title": "Weekend Anchor",
+   "style": "Calm, trustworthy, the adult in the room.",
+   "sample": "Good weekend. We begin with the story everyone's talking about—and yes, it involves a trampoline.",
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, man in his 50s, navy suit, greying temples, calm expression, weekend news set, soft light, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510002,
+    "ref_image": "assets/anchors/nick.png",
+    "voice_ref": "assets/voices/nick.wav",
+    "voice_prompt": "deep calm male newsreader, steady, reassuring, unhurried",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
+   }
+  },
+  {
+   "id": "nova",
+   "name": "NOVA",
+   "kind": "ai_anchor",
+   "title": "AI Prime Anchor",
+   "style": "Polished synthetic delivery; fast, neutral, always available.",
+   "sample": "I'm Nova. Here's your Gu-cast: headlines with impact, updated every fifteen minutes.",
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 0.9,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, androgynous synthetic presenter, sleek silver-white hair, minimalist white collar, clean futuristic studio, subtle blue rim light, clearly stylised digital human, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510003,
+    "ref_image": "assets/anchors/nova.png",
+    "voice_ref": "assets/voices/nova.wav",
+    "voice_prompt": "polished neutral synthetic voice, precise, even cadence",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
+   }
+  },
+  {
+   "id": "echo",
+   "name": "ECHO",
+   "kind": "ai_anchor",
+   "title": "AI Breaking/Weather Anchor",
+   "style": "Urgent but not alarmist; handles bumpers and updates.",
+   "sample": "Breaking update from Gu: power restored downtown; crews remain on scene.",
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, synthetic presenter with short dark hair and a faint teal glow at the temples, high-collar black jacket, red breaking-news graphics behind, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510004,
+    "ref_image": "assets/anchors/echo.png",
+    "voice_ref": "assets/voices/echo.wav",
+    "voice_prompt": "clear urgent female voice, controlled, not alarmist",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
+   }
+  },
+  {
+   "id": "marcus",
+   "name": "Marcus Bell",
+   "kind": "reporter",
+   "title": "Politics Reporter",
+   "style": "City Hall veteran, dry wit.",
+   "sample": "At City Hall, the budget didn't just pass—it delivered a one-two punch.",
+   "desks": [
+    "politics"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, man in his 50s, rumpled tweed jacket, loosened tie, standing outside a city hall, overcast daylight, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510005,
+    "ref_image": "assets/anchors/marcus.png",
+    "voice_ref": "assets/voices/marcus.wav",
+    "voice_prompt": "dry gravelly male reporter, wry, deliberate",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
+   }
+  },
+  {
+   "id": "lena",
+   "name": "Lena Moravec",
+   "kind": "reporter",
+   "title": "International Correspondent",
+   "style": "Calm under pressure; global desk lead.",
+   "sample": "From the world desk, a ceasefire holds for a second night—fragile, but holding.",
+   "desks": [
+    "world",
+    "americas",
+    "europe",
+    "asia",
+    "mideast",
+    "africa"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, woman in her late 30s, utility field jacket, scarf, dusk skyline behind, composed expression, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510006,
+    "ref_image": "assets/anchors/lena.png",
+    "voice_ref": "assets/voices/lena.wav",
+    "voice_prompt": "calm female foreign correspondent, slight Central European accent, composed",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
+   }
+  },
+  {
+   "id": "rafael",
+   "name": "Rafael Tertelbach",
+   "kind": "reporter",
+   "title": "Business Reporter",
+   "style": "Makes markets sound like a contact sport.",
+   "sample": "Markets opened with a jolt—tech up, energy down, your wallet still confused.",
+   "desks": [
+    "business",
+    "markets"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, man in his 40s, open-collar white shirt, trading-floor screens behind, animated expression, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510007,
+    "ref_image": "assets/anchors/rafael.png",
+    "voice_ref": "assets/voices/rafael.wav",
+    "voice_prompt": "punchy male business reporter, quick, sporty energy",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
+   }
+  },
+  {
+   "id": "juno",
+   "name": "Juno Park",
+   "kind": "reporter",
+   "title": "Technology Reporter",
+   "style": "Sharp, skeptical, fluent in AI hype.",
+   "sample": "A new AI model promises fewer hallucinations—and yes, it still can't find your keys.",
+   "desks": [
+    "tech",
+    "science"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, woman in her late 20s, black turtleneck, round glasses, server-rack lights behind, sceptical half-smile, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510008,
+    "ref_image": "assets/anchors/juno.png",
+    "voice_ref": "assets/voices/juno.wav",
+    "voice_prompt": "sharp young female tech reporter, quick, dry",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
+   }
+  },
+  {
+   "id": "dana",
+   "name": "Dana Ruiz",
+   "kind": "reporter",
+   "title": "Investigative/Consumer Reporter",
+   "style": "Dogged, receipt-checking, never blinks.",
+   "sample": "We followed the paper trail. What we found will make you check your receipt twice.",
+   "desks": [
+    "consumer"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, woman in her 40s, dark blazer, holding a folder of documents, office corridor, serious look, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510009,
+    "ref_image": "assets/anchors/dana.png",
+    "voice_ref": "assets/voices/dana.wav",
+    "voice_prompt": "firm female investigative reporter, precise, unflinching",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
+   }
+  },
+  {
+   "id": "celeste",
+   "name": "Celeste Storm",
+   "kind": "reporter",
+   "title": "Meteorologist",
+   "style": "Cheesy name, serious forecast.",
+   "sample": "Gu-cast: sunshine early, punchy storms late. Secure the patio cushions.",
+   "desks": [
+    "weather"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, woman in her 30s, emerald dress, weather map wall behind, bright friendly expression, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510010,
+    "ref_image": "assets/anchors/celeste.png",
+    "voice_ref": "assets/voices/celeste.wav",
+    "voice_prompt": "bright female meteorologist, friendly, clear",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
+   }
+  },
+  {
+   "id": "flip",
+   "name": "Flip Torres",
+   "kind": "reporter",
+   "title": "Traffic Reporter",
+   "style": "Fast, cheerful, helicopter-energy.",
+   "sample": "If you're heading downtown, brace for a slowdown—two lanes closed, one coffee needed.",
+   "desks": [
+    "traffic"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, man in his 20s, headset, bomber jacket, helicopter cockpit window behind, big grin, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510011,
+    "ref_image": "assets/anchors/flip.png",
+    "voice_ref": "assets/voices/flip.wav",
+    "voice_prompt": "fast cheerful male traffic reporter, high energy",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
+   }
+  },
+  {
+   "id": "lola",
+   "name": "Lola Sparks",
+   "kind": "reporter",
+   "title": "Entertainment Reporter",
+   "style": "Glamorous, gossipy, harmless fun.",
+   "sample": "Hollywood brought the drama last night—and the after-party brought more.",
+   "desks": [
+    "entertainment"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, woman in her 30s, sequined jacket, red-carpet backdrop with soft bokeh lights, glamorous, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510012,
+    "ref_image": "assets/anchors/lola.png",
+    "voice_ref": "assets/voices/lola.wav",
+    "voice_prompt": "glamorous playful female entertainment reporter, breathy, lively",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
+   }
+  },
+  {
+   "id": "coach",
+   "name": "Troy \"Coach\" Maddox",
+   "kind": "reporter",
+   "title": "Sports Reporter",
+   "style": "Loud, lovable, still reliving his glory days.",
+   "sample": "The underdogs delivered a knockout. Coach here—yes, I'm still yelling.",
+   "desks": [
+    "sports"
+   ],
+   "heygen": {
+    "character_type": "avatar",
+    "avatar_id": "",
+    "talking_photo_id": "",
+    "avatar_style": "normal",
+    "voice_id": "",
+    "speed": 1.0,
+    "background": {
+     "type": "color",
+     "value": "#0d0f14"
+    }
+   },
+   "comfy": {
+    "look_prompt": "photorealistic portrait of a fictional TV news presenter, burly man in his 50s, varsity jacket, whistle around neck, stadium lights behind, booming grin, head and shoulders, facing camera, 85mm, broadcast quality",
+    "seed": 510013,
+    "ref_image": "assets/anchors/coach.png",
+    "voice_ref": "assets/voices/coach.wav",
+    "voice_prompt": "loud booming male sports reporter, enthusiastic, gravelly",
+    "motion_prompt": "a news presenter speaking to camera, natural head movement and blinking, steady framing"
+   }
+  },
+  {
+   "id": "kai",
+   "name": "Kai Love",
+   "kind": "production",
+   "title": "AI Anchor Operator/Producer",
+   "style": "Human wrangler for the AI talent.",
+   "sample": "Nova, slow the read by 10%; let the sponsor bumper breathe."
+  },
+  {
+   "id": "margo",
+   "name": "Margo Kessler",
+   "kind": "production",
+   "title": "News Director",
+   "style": "Sets tone; protects credibility.",
+   "sample": "We don't punch down; we punch through."
+  },
+  {
+   "id": "priya",
+   "name": "Priya Sati",
+   "kind": "production",
+   "title": "Executive Producer",
+   "style": "Runs the rundown; keeps everyone honest.",
+   "sample": "Tighten the open, protect the sponsor read, and give the senior correspondent room to land the close."
+  },
+  {
+   "id": "dex",
+   "name": "Dex Okafor",
+   "kind": "production",
+   "title": "Assignment Desk Editor",
+   "style": "Air-traffic control for coverage.",
+   "sample": "Desk to all units: storm cell moving east; Lena, take international; Marcus, City Hall; Dana, consumer angle."
+  },
+  {
+   "id": "mina",
+   "name": "Mina Cho",
+   "kind": "production",
+   "title": "Digital/Social Producer",
+   "style": "Clips, captions, and brand-safe chaos.",
+   "sample": "Clip it, caption it, Gu it."
+  },
+  {
+   "id": "owen",
+   "name": "Owen Pike",
+   "kind": "production",
+   "title": "Video Editor",
+   "style": "Fixes audio, timing, and occasionally the puns.",
+   "sample": "I can fix the audio, but I can't fix the pun."
+  },
+  {
+   "id": "arbi",
+   "name": "Arbi Ong",
+   "kind": "production",
+   "title": "Sponsorship Integration Producer",
+   "style": "Makes ads feel native without breaking trust.",
+   "sample": "Sponsor read in three, two—make it punchy but legal."
+  }
+ ],
+ "shows": [
+  {
+   "id": "morning",
+   "name": "Gu Morning",
+   "anchor": "benji",
+   "days": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "start": "05:00",
+   "end": "10:00",
+   "render_top": 4,
+   "render_quarters": [
+    0,
+    2
+   ],
+   "local_segments": [
+    "weather",
+    "traffic"
+   ]
+  },
+  {
+   "id": "evening",
+   "name": "Gu Evening News",
+   "anchor": "tessa",
+   "days": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "start": "16:00",
+   "end": "20:00",
+   "render_top": 4,
+   "render_quarters": [
+    0,
+    2
+   ],
+   "local_segments": [
+    "weather"
+   ]
+  },
+  {
+   "id": "weekend",
+   "name": "Gu Weekend",
+   "anchor": "nick",
+   "days": [
+    5,
+    6
+   ],
+   "start": "07:00",
+   "end": "20:00",
+   "render_top": 3,
+   "render_quarters": [
+    0
+   ],
+   "local_segments": [
+    "weather"
+   ]
+  },
+  {
+   "id": "gucast",
+   "name": "Gu-cast",
+   "anchor": "nova",
+   "default": true,
+   "render_top": 1,
+   "render_quarters": [
+    0
+   ],
+   "local_segments": []
+  }
+ ],
+ "breaking": {
+  "anchor": "echo",
+  "risk_threshold": 0.7,
+  "on_regime": [
+   "crisis"
+  ]
+ }
+}

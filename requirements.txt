@@ -1,0 +1,4 @@
+# Core (ingest via 5protocol news_ingest needs feedparser)
+feedparser>=6.0
+# Studio box only (kwon9000 / 5090): piper-tts, ffmpeg (system package), ComfyUI + nodes
+# piper-tts>=1.2

@@ -1,0 +1,4 @@
+[submodule "vendor/5protocol"]
+	path = vendor/5protocol
+	url = https://github.com/ragingpersimmon/5protocol.git
+	branch = main

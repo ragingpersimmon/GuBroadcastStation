@@ -1,0 +1,22 @@
+{
+  "_note": "Direct-sold inventory. on_air = read by the anchor (max 1 per N segments); web = slot on site. Disclose every sponsor read on air ('sponsored by') and on page. Ad-network tags (AdSense/Ezoic/etc.) go in ad_network.",
+  "on_air_every_n_segments": 4,
+  "sponsors": [
+    {
+      "id": "house_promo",
+      "name": "Gu Broadcasting Station",
+      "active": true,
+      "desks": [],
+      "on_air": "This broadcast is supported by viewers like you. Advertise with Gu Broadcasting Station at our sponsors page.",
+      "web": {"headline": "Advertise on Gu Broadcasting Station", "body": "Reach a global news audience.", "url": "/advertise.html"},
+      "preroll_video": null
+    }
+  ],
+  "ad_network": {
+    "enabled": false,
+    "provider": "adsense",
+    "client_id": "ca-pub-XXXXXXXXXXXXXXXX",
+    "slots": {"top": "", "inline": "", "sidebar": ""},
+    "ads_txt": "google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0"
+  }
+}
