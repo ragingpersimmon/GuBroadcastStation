@@ -1,0 +1,11 @@
+[Unit]
+Description=Gu Broadcast Station - ingest (5protocol bridge) + rundown + site build
+After=network-online.target tailscaled.service
+
+[Service]
+Type=oneshot
+User=gbs
+WorkingDirectory=/opt/gubroadcast
+EnvironmentFile=/opt/gubroadcast/.env
+ExecStart=/opt/gubroadcast/.venv/bin/python -m gbs run
+TimeoutStartSec=900
