@@ -40,7 +40,9 @@ fi
 chown -R gbs: "$APP"   # also covers a checkout cloned as root
 cd "$APP"
 sudo -u gbs git pull --ff-only 2>/dev/null || true
-sudo -u gbs git submodule update --init
+sudo -u gbs git submodule update --init || git -c safe.directory="$APP" submodule update --init
+chown -R gbs: "$APP"
+[ -f vendor/5protocol/news_ingest.py ] || { echo "vendor/5protocol is missing: the GitHub login needs read access to ragingpersimmon/5protocol" >&2; exit 1; }
 [ -x .venv/bin/python ] || sudo -u gbs python3 -m venv .venv
 sudo -u gbs .venv/bin/pip install -q -r requirements.txt
 mkdir -p /var/www/gubroadcast && chown gbs: /var/www/gubroadcast
