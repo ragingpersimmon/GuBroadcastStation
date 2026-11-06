@@ -120,7 +120,7 @@ def build_issue(cfg: Settings, articles: list[dict], now: datetime, pulse: dict 
         src = (f'<p style="margin:6px 0 0;font:13px/1.4 {SANS};color:{SLATE}">Sources: {e(cred)}'
                + (" · <b style='color:" + INK + "'>Watch</b>" if a.get("video") else "") + "</p>") if cred else ""
         return (f'<tr><td style="padding:14px 0;border-bottom:1px solid {RULE}">'
-                f'<a href="{e(url)}" style="font:bold {size}/1.25 {SANS};color:{INK};text-decoration:none">{e(a["title"])}</a>'
+                f'<a href="{e(url)}" style="font:bold {size}/1.25 {SERIF};color:{INK};text-decoration:none">{e(a["title"])}</a>'
                 f'{sf}{src}</td></tr>')
 
     rows = [story_block(a, True) for a in top]
