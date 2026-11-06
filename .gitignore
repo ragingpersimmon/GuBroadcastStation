@@ -4,3 +4,4 @@ __pycache__/
 data/
 public/
 .pytest_cache/
+.cache/
