@@ -240,12 +240,12 @@ def shell(ctx: Ctx, path: str, title: str, body: str, desc: str = "", active: st
 <meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}">
 <meta property="og:url" content="{e(url)}"><meta name="twitter:card" content="summary">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="{assets.FONTS}"><link rel="stylesheet" href="/assets/gu.css">
+<link rel="stylesheet" href="{assets.FONTS}"><link rel="stylesheet" href="/assets/gu.css?v={assets.CSS_VER}">
 {ctx.ads.head_tag()}{extra_head}{ld}</head><body>
 <a class="skip" href="#main">Skip to content</a>
 {onair_bar(ctx)}{masthead(ctx)}<div id="nav">{nav(active)}</div>{breaking_band(ctx)}
 {ad}<main id="main" class="wrap">{body}</main>{footer(ctx)}{cookie}
-<script src="/assets/gu.js" defer></script></body></html>"""
+<script src="/assets/gu.js?v={assets.JS_VER}" defer></script></body></html>"""
 
 
 def newsletter_band(ctx: Ctx) -> str:
