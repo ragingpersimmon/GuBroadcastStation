@@ -101,6 +101,9 @@ _TITLE_TAIL = re.compile(r"\s+[-|\u2013\u2014]\s+(BBC( News| Sport)?|The Guardia
                          r"ESPN|The Verge|MarketWatch|ScienceDaily)\s*$", re.I)
 
 
+_FEED_TAGS = re.compile(r"\s+[-|\u2013\u2014]\s+(video|the latest|live|live updates|podcast|photos|in pictures|opinion)\s*$", re.I)
+
+
 def public_view(a: dict) -> dict:
     """What the public may see of a stored story. Sources stay confidential
     (Ric, 2026-11-06): outlet names come out of the text, and stories written
@@ -108,7 +111,7 @@ def public_view(a: dict) -> dict:
     "according to ...") fall back to the headline only, since that sentence
     was the outlet's words, not ours."""
     from gbs.editorial.scriptwriter import scrub_outlets
-    title = _TITLE_TAIL.sub("", a.get("title") or "").strip()
+    title = _FEED_TAGS.sub("", _TITLE_TAIL.sub("", a.get("title") or "")).strip()
     script = a.get("script") or ""
     if re.search(r"Full sourcing is on our site|That's according to", script):
         script = f"{title.rstrip('.')}."
