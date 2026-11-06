@@ -282,3 +282,9 @@ JS = r"""
 """
 
 FAVICON = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="#1b1f27"/><text x="32" y="44" text-anchor="middle" font-family="Arial Narrow,Arial,sans-serif" font-weight="900" font-size="34" fill="#c8102e">Gu</text><circle cx="52" cy="12" r="5" fill="#c8102e"/></svg>"""
+
+
+import hashlib as _h
+# content hashes: pages link /assets/gu.css?v=<hash>, so browsers refetch the moment it changes
+CSS_VER = _h.sha1(CSS.encode()).hexdigest()[:10]
+JS_VER = _h.sha1(JS.encode()).hexdigest()[:10]
