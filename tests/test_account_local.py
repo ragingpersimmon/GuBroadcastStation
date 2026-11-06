@@ -218,6 +218,8 @@ def test_scrub_and_public_view():
            "script": "Rates rise. The central bank moved again today. That's according to BBC News. Full sourcing is on our site."}
     v = public_view(old)
     assert v["title"] == "Rates rise" and v["script"] == "Rates rise." and v["standfirst"] == ""
+    assert public_view({**old, "title": "Oval Office order \u2013 video"})["title"] == "Oval Office order"
+    assert public_view({**old, "title": "AI bubble? - The Latest"})["title"] == "AI bubble?"
 
 
 def test_desk_briefs_fill_thin_desks():

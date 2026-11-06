@@ -1004,6 +1004,8 @@ def build_site(cfg: Settings, rundown: list[Segment], pulse: dict | None = None,
             shutil.copy(src, dest)
             ctx.portraits[tid] = f"/img/people/{tid}.png"
 
+    for gone in ("about/sources",):     # pages retired since earlier builds (sources are confidential)
+        shutil.rmtree(out / gone, ignore_errors=True)
     ctx.stock = images.publish(images.load_pool(cfg.data_dir), cfg.data_dir, out)
 
     page_home(ctx)

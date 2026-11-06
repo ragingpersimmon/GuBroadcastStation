@@ -82,6 +82,7 @@ def site(tmp_path, monkeypatch):
 def test_every_page_exists(site):
     cfg, segs = site
     missing = [u for u in EXPECTED if not resolve(cfg.site_out, u).is_file()]
+    assert not (cfg.site_out / "about" / "sources").exists()
     assert not missing, missing
     assert len(list((cfg.site_out / "story").rglob("*.html"))) == len(segs)
 
