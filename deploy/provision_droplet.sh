@@ -47,7 +47,7 @@ chown -R gbs: "$APP"
 sudo -u gbs .venv/bin/pip install -q -r requirements.txt
 mkdir -p /var/www/gubroadcast && chown gbs: /var/www/gubroadcast
 [ -f .env ] || { cp .env.example .env; chown gbs: .env; chmod 600 .env; echo ">> edit $APP/.env"; }
-cp deploy/gubroadcast-{pipeline,studio,newsletter}.{service,timer} deploy/gubroadcast-account.service /etc/systemd/system/
+cp deploy/gubroadcast-{pipeline,studio,newsletter}.{service,timer} deploy/gubroadcast-account.service deploy/gubroadcast-images.{service,timer} /etc/systemd/system/
 
 rm -f /etc/nginx/sites-enabled/default
 if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
@@ -70,6 +70,6 @@ systemctl start gubroadcast-pipeline.service || echo ">> first edition failed: j
 grep -q '^GBS_SESSION_SECRET=.\+' .env || { sed -i '/^GBS_SESSION_SECRET=/d' .env
   echo "GBS_SESSION_SECRET=$(python3 -c 'import secrets;print(secrets.token_urlsafe(48))')" >> .env; }
 systemctl daemon-reload
-systemctl enable --now gubroadcast-account.service
+systemctl enable --now gubroadcast-account.service gubroadcast-images.timer
 systemctl enable --now gubroadcast-pipeline.timer gubroadcast-studio.timer gubroadcast-newsletter.timer
 echo ">> done: curl -I https://$DOMAIN"

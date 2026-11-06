@@ -8,7 +8,7 @@ into $GBS_DATA_DIR/stock/ and copied to /img/stock/ on build. A story gets a
 stable pick from its desk's pool. Every image is labelled "Illustrative image"
 on the page: it shows the topic, never the event.
 
-Pool refreshes weekly; GBS_LIVE_DATA=0 never touches the network.
+Pool refreshes daily (gubroadcast-images.timer, `gbs stock-images`); GBS_LIVE_DATA=0 never touches the network.
 """
 from __future__ import annotations
 
@@ -28,7 +28,6 @@ API = "https://api.openverse.org/v1/images/"
 UA = "GuBroadcastStation/1.0 (+https://gubs.ca)"
 OK_LICENSES = {"cc0", "pdm"}
 PER_QUERY = 6
-TTL = 7 * 86400
 
 KEYWORDS = {
     "world": ["globe map", "world map", "city skyline night"],
@@ -99,6 +98,12 @@ def refresh(stock_dir: Path) -> dict:
             time.sleep(0.5)                      # stay well inside anonymous rate limits
         if items:
             pool[desk] = items
+    old = {}
+    try:
+        old = json.loads((stock_dir / "pool.json").read_text()).get("pool", {})
+    except Exception:
+        pass
+    pool = {**old, **pool}               # a desk whose searches all failed keeps yesterday's images
     if pool:
         (stock_dir / "pool.json").write_text(json.dumps({"ts": time.time(), "pool": pool}, indent=1))
     return pool
@@ -113,8 +118,9 @@ def load_pool(data_dir: Path) -> dict:
             doc = json.loads(pj.read_text())
         except Exception:
             doc = None
-    fresh = doc and time.time() - doc.get("ts", 0) < TTL
-    if not fresh and os.getenv("GBS_LIVE_DATA", "1") != "0" and os.getenv("GBS_STOCK_IMAGES", "1") != "0":
+    # The pool refreshes from gubroadcast-images.timer (daily); the edition build only
+    # fetches inline when there is no pool at all yet, so a slow Openverse never stalls news.
+    if not doc and os.getenv("GBS_LIVE_DATA", "1") != "0" and os.getenv("GBS_STOCK_IMAGES", "1") != "0":
         try:
             pool = refresh(stock)
             if pool:

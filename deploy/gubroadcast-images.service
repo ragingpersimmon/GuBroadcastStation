@@ -1,0 +1,12 @@
+[Unit]
+Description=Gu Broadcasting Station - refresh Openverse CC0/public-domain image pool
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=gbs
+WorkingDirectory=/opt/gubroadcast
+EnvironmentFile=/opt/gubroadcast/.env
+ExecStart=/opt/gubroadcast/.venv/bin/python -m gbs stock-images
+TimeoutStartSec=1800
+Nice=10

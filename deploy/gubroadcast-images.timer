@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh Gu stock images daily
+
+[Timer]
+OnCalendar=*-*-* 03:17
+Persistent=true
+
+[Install]
+WantedBy=timers.target
