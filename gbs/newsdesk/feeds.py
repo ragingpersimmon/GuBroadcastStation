@@ -17,8 +17,9 @@ WORLD_FEEDS = {
     "world:france24": "https://www.france24.com/en/rss",
     "world:un_news": "https://news.un.org/feed/subscribe/en/news/all/rss.xml",
     # Regional desks
-    "americas:cbc": "https://www.cbc.ca/webfeed/rss/rss-world",
-    "americas:cbc_canada": "https://www.cbc.ca/webfeed/rss/rss-canada",
+    # CBC (cbc.ca/webfeed) times out from DigitalOcean IPs (verified 2026-11-06); Global News instead
+    "world:globalnews_world": "https://globalnews.ca/world/feed/",
+    "americas:globalnews_canada": "https://globalnews.ca/canada/feed/",
     "europe:bbc_europe": "https://feeds.bbci.co.uk/news/world/europe/rss.xml",
     "asia:bbc_asia": "https://feeds.bbci.co.uk/news/world/asia/rss.xml",
     "asia:nhk": "https://www3.nhk.or.jp/rss/news/cat6.xml",
@@ -34,13 +35,13 @@ WORLD_FEEDS = {
     # Beat desks (newsroom.json assigns each to a reporter)
     "politics:npr_politics": "https://feeds.npr.org/1014/rss.xml",
     "politics:guardian_politics": "https://www.theguardian.com/politics/rss",
-    "politics:cbc_politics": "https://www.cbc.ca/webfeed/rss/rss-politics",
-    "business:cbc_business": "https://www.cbc.ca/webfeed/rss/rss-business",
+    "politics:globalnews_politics": "https://globalnews.ca/politics/feed/",
+    "business:globalnews_money": "https://globalnews.ca/money/feed/",
     "consumer:guardian_money": "https://www.theguardian.com/money/rss",
     "entertainment:bbc_entertainment": "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml",
     "entertainment:guardian_culture": "https://www.theguardian.com/culture/rss",
     "sports:bbc_sport": "https://feeds.bbci.co.uk/sport/rss.xml",
-    "sports:cbc_sports": "https://www.cbc.ca/webfeed/rss/rss-sports",
+    "sports:globalnews_sports": "https://globalnews.ca/sports/feed/",
 }
 
 DESKS = ["world", "americas", "europe", "asia", "mideast", "africa", "politics", "business",

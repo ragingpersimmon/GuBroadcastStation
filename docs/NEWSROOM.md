@@ -26,15 +26,15 @@ An edition is ordered: breaking (if any) → open → stories → close. On Haro
 
 | Reporter | Desks | Source |
 |---|---|---|
-| Marcus Bell | politics | NPR, Guardian, CBC politics feeds |
-| Lena Moravec | world + all regional desks | BBC, Al Jazeera, Guardian, DW, France 24, UN, NHK, Korea Herald, CBC |
-| Rafael Tertelbach | business, markets | BBC/CBC business, plus the 5protocol market pulse |
+| Marcus Bell | politics | NPR, Guardian, Global News politics feeds |
+| Lena Moravec | world + all regional desks | BBC, Al Jazeera, Guardian, DW, France 24, UN, NHK, Korea Herald, Global News |
+| Rafael Tertelbach | business, markets | BBC business, Global News Money, plus the 5protocol market pulse |
 | Juno Park | tech, science | BBC tech/science, Ars Technica, NASA |
 | Dana Ruiz | consumer | Guardian Money |
 | Celeste Storm | weather | Open-Meteo for `GBS_LOCAL_LAT/LON` |
 | Flip Torres | traffic | Open511 feed at `GBS_TRAFFIC_OPEN511_URL` (e.g. DriveBC) |
 | Lola Sparks | entertainment | BBC Entertainment & Arts, Guardian Culture |
-| Troy "Coach" Maddox | sports | BBC Sport, CBC Sports |
+| Troy "Coach" Maddox | sports | BBC Sport, Global News Sports |
 
 A story on a desk nobody owns goes to the show anchor.
 

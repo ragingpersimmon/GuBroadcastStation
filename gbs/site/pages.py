@@ -157,7 +157,7 @@ def sources(ctx):
         host = urlparse(url).hostname or ""
         home = "https://" + ".".join(host.split(".")[-2:]) if host.count(".") >= 1 else url
         overrides = {"BBC News": "https://www.bbc.com/news", "BBC Sport": "https://www.bbc.com/sport",
-                     "CBC News": "https://www.cbc.ca/news", "CBC Sports": "https://www.cbc.ca/sports",
+                     "Global News": "https://globalnews.ca",
                      "NPR": "https://www.npr.org", "The Guardian": "https://www.theguardian.com",
                      "UN News": "https://news.un.org", "NHK": "https://www3.nhk.or.jp/nhkworld/",
                      "DW": "https://www.dw.com", "France 24": "https://www.france24.com/en/",

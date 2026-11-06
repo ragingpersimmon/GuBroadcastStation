@@ -26,10 +26,10 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 ## 2. Droplet + site
 
 - [x] **T11 [ric]** Domain bought: **gubs.ca** (2026-11-04).
-- [ ] **T11b [ric]** At the registrar, point DNS at the droplet: `A gubs.ca → <droplet IPv4>`, `A www → <droplet IPv4>` (plus `AAAA` if the droplet has IPv6). Check with `dig +short gubs.ca`.
+- [x] **T11b [ric]** At the registrar, point DNS at the droplet: `A gubs.ca → <droplet IPv4>`, `A www → <droplet IPv4>` (plus `AAAA` if the droplet has IPv6). Check with `dig +short gubs.ca`.
 - [ ] **T11c [ric]** Set up email for @gubs.ca: forwarding is enough to start (registrar forwarding, Cloudflare Email Routing or ImprovMX) for news@, tips@, corrections@, ads@ and privacy@, all to your inbox. The site publishes these addresses. Add SPF/DMARC records once a sender exists (needed for T32 newsletter).
 - [x] **T12a [agent]** Domain wired in: nginx (apex canonical, www→apex, ACME path), `.env.example`, config defaults, site emails (done 2026-11-04).
-- [ ] **T12b [ric/agent]** (blocked: T11b, T13) On the droplet: `sudo DOMAIN=gubs.ca CERT_EMAIL=<you> deploy/provision_droplet.sh`. It bootstraps HTTP, gets the Let's Encrypt cert for gubs.ca + www, installs the HTTPS config and enables both timers. Then check `curl -I https://gubs.ca`.
+- [x] **T12b [ric/agent]** (blocked: T11b, T13) On the droplet: `sudo DOMAIN=gubs.ca CERT_EMAIL=<you> deploy/provision_droplet.sh`. It bootstraps HTTP, gets the Let's Encrypt cert for gubs.ca + www, installs the HTTPS config and enables both timers. Then check `curl -I https://gubs.ca`.
 - [ ] **T13 [ric]** Add a read-only deploy key for the private `5protocol` submodule on the droplet. Put `PHONE_PUSH_KEY` in `/opt/gubroadcast/.env` for the market pulse.
 - [ ] **T14 [agent]** (blocked: T12) On the droplet, run `python -m gbs ingest` and check every feed in `gbs/newsdesk/feeds.py` returns items. Fix or replace dead RSS URLs and log any changes here. (They couldn't be verified from the build sandbox.)
 - [ ] **T15 [ric]** Set `GBS_LOCAL_NAME/LAT/LON` (Celeste's weather) and decide on traffic: the Open511 / DriveBC feed URL for `GBS_TRAFFIC_OPEN511_URL`.
@@ -88,6 +88,8 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 ## Findings log
 
 _Agents: append dated notes here (render timings, dead feeds, prompt changes)._
+
+- 2026-11-06: Droplet gu-broadcast-station-604 (167.99.178.46, TOR1, 2 GB) provisioned; HTTPS cert for gubs.ca + www issued. CBC webfeeds hang from DO IPs (TLS stalls, no close) and froze the first edition; replaced with Global News, plus a hard socket timeout (GBS_FEED_TIMEOUT, 20 s). Submodule pin had been missing from main; restored (53e269f).
 
 - 2026-11-04: Newsletter platform = Kit free plan (10k subs, API on free). Beehiiv create-post API needs Max/Enterprise; Substack has no API.
 - 2026-11-04: Domain is gubs.ca. Public emails derive from GBS_SITE_URL's host (config/site.json `emails`).

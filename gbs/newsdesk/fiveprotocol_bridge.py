@@ -76,6 +76,11 @@ class NewsBridge:
 
     def pull(self) -> list[Story]:
         """One poll pass; returns only never-seen stories."""
+        import os
+        import socket
+        # feedparser opens sockets with no timeout: an outlet that stalls the TLS handshake
+        # (CBC from DigitalOcean did) hangs the whole edition. Hard cap every socket.
+        socket.setdefaulttimeout(float(os.getenv("GBS_FEED_TIMEOUT", "20")))
         now = time.time()
         stories = []
         for item, snap in self.poller.poll_once():

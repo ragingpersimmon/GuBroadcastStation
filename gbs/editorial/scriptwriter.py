@@ -27,7 +27,8 @@ OUTLET_NAMES = {
     "guardian_culture": "The Guardian", "guardian_money": "The Guardian",
     "npr": "NPR", "npr_politics": "NPR", "dw": "DW", "france24": "France 24", "un_news": "UN News",
     "cbc": "CBC News", "cbc_canada": "CBC News", "cbc_politics": "CBC News", "cbc_sports": "CBC Sports",
-    "cbc_business": "CBC News", "nhk": "NHK", "korea_herald": "The Korea Herald",
+    "cbc_business": "CBC News", "globalnews_world": "Global News", "globalnews_canada": "Global News",
+    "globalnews_politics": "Global News", "globalnews_money": "Global News", "globalnews_sports": "Global News", "nhk": "NHK", "korea_herald": "The Korea Herald",
     "ars": "Ars Technica", "nasa": "NASA", "open-meteo": "Open-Meteo", "open511": "DriveBC",
 }
 
