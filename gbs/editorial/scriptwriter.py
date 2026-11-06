@@ -29,7 +29,10 @@ OUTLET_NAMES = {
     "cbc": "CBC News", "cbc_canada": "CBC News", "cbc_politics": "CBC News", "cbc_sports": "CBC Sports",
     "cbc_business": "CBC News", "globalnews_world": "Global News", "globalnews_canada": "Global News",
     "globalnews_politics": "Global News", "globalnews_money": "Global News", "globalnews_sports": "Global News", "nhk": "NHK", "korea_herald": "The Korea Herald",
-    "ars": "Ars Technica", "nasa": "NASA", "open-meteo": "Open-Meteo", "open511": "DriveBC",
+    "ars": "Ars Technica", "bbc_us_canada": "BBC News", "bbc_latam": "BBC News", "guardian_us": "The Guardian",
+    "cnbc_markets": "CNBC", "marketwatch": "MarketWatch", "guardian_consumer": "The Guardian",
+    "guardian_science": "The Guardian", "sciencedaily": "ScienceDaily", "guardian_sport": "The Guardian",
+    "espn": "ESPN", "verge": "The Verge", "npr_arts": "NPR", "nasa": "NASA", "open-meteo": "Open-Meteo", "open511": "DriveBC",
 }
 
 
@@ -65,8 +68,36 @@ def _try_llm(cfg: Settings, system: str, user: str, fallback: str) -> str:
 
 
 def _material(seg: Segment) -> str:
-    return "\n".join(f"- {outlet_name(s.source)}: {s.title}. {s.summary[:600]}"
-                     for s in [seg.story, *seg.related[:3]])
+    # outlets are not named to the model: it can't repeat what it never sees
+    return "\n".join(f"- Report {i}: {s.title}. {s.summary[:600]}"
+                     for i, s in enumerate([seg.story, *seg.related[:3]], 1))
+
+
+_OUTLETS = sorted({*OUTLET_NAMES.values(), "Reuters", "AP", "Associated Press", "AFP", "CNN", "BBC", "CBC",
+                   "Bloomberg", "ScienceDaily"} - {"Open-Meteo", "DriveBC"},
+                  key=len, reverse=True)
+_ALT = "|".join(re.escape(o) for o in _OUTLETS)
+_SCRUB = [
+    (re.compile(r"\s*(?:That's|That is|This is)\s+according to [^.]*\.\s*", re.I), " "),
+    (re.compile(r"\s*Full sourcing is on our site\.?", re.I), ""),
+    (re.compile(r"\s*Sources for every story are on our site\.?", re.I), ""),
+    (re.compile(rf",?\s*(?:according to|reports?|reported by|says?|per)\s+(?:the\s+)?(?:{_ALT})\b", re.I), ""),
+    (re.compile(rf",\s*(?:the\s+)?(?:{_ALT})\s+(?:reports?|reported|says?|said)(?=[.!?])", re.I), ""),
+    (re.compile(rf"\b(?:the\s+)?(?:{_ALT})\s+(?:reports?|reported|says?|said)\s+(?:that\s+)?", re.I), ""),
+    (re.compile(rf"\s*Details from (?:{_ALT}) as they come in\.?", re.I), " More as it comes in."),
+]
+
+
+def scrub_outlets(text: str) -> str:
+    """Remove on-air/on-page naming of news outlets (Ric, 2026-11-06: sources stay
+    confidential). Used on new scripts and on stories already in the archive."""
+    if not text:
+        return text
+    out = text
+    for rx, rep in _SCRUB:
+        out = rx.sub(rep, out)
+    out = re.sub(r"\s+([.,;:!?])", r"\1", re.sub(r"[ \t]{2,}", " ", out)).strip()
+    return out[:1].upper() + out[1:] if out else out
 
 
 def seg_sensitive(seg: Segment) -> bool:
@@ -76,18 +107,17 @@ def seg_sensitive(seg: Segment) -> bool:
 # ---------------- story reads ----------------
 
 def template_script(seg: Segment, talent: dict | None = None) -> str:
-    s = seg.story
-    outlets = ", ".join(dict.fromkeys(outlet_name(x["source"]) for x in seg.sources))
-    summary = re.split(r"(?<=[.!?])\s", s.summary.strip())[0] if s.summary else ""
-    body = f"{s.title}. " + (f"{summary} " if summary and summary.lower() != s.title.lower() else "")
-    return f"{body}That's according to {outlets}. Full sourcing is on our site."
+    """No-LLM fallback: the headline only. Copying the feed's summary sentence
+    would republish someone else's words (and, with sources kept off the site,
+    without credit), so the full read waits for the model."""
+    return f"{seg.story.title.strip().rstrip('.')}."
 
 
 def write_script(cfg: Settings, seg: Segment, talent: dict) -> str:
     system = (f"{STANDARDS}\n{tone_instruction(talent, seg_sensitive(seg))}\n"
               "Write a spoken news read of 60-110 words for this story. Output the read only, no sign-off.")
     user = f"Desk: {seg.story.desk}\nMaterial:\n{_material(seg)}"
-    return _try_llm(cfg, system, user, template_script(seg, talent))
+    return scrub_outlets(_try_llm(cfg, system, user, template_script(seg, talent)))
 
 
 # ---------------- show bookends & bumpers ----------------
@@ -165,19 +195,19 @@ def write_signature_open(cfg: Settings, show: dict, anchor: dict, rundown: list[
 
 
 def write_close(cfg: Settings, show: dict, anchor: dict) -> str:
-    fallback = f"That's {show['name']}. Sources for every story are on our site. I'm {anchor['name']}, and this is Gu."
+    fallback = f"That's {show['name']}. Every story is on our site. I'm {anchor['name']}, and this is Gu."
     system = (f"{STANDARDS}\n{tone_instruction(anchor, False)}\n"
-              f"Write a sign-off for '{show['name']}' in 20 words or fewer. Mention sources are on the site. "
+              f"Write a sign-off for '{show['name']}' in 20 words or fewer. "
               "No news facts. Output the read only.")
     return _try_llm(cfg, system, "Sign off.", fallback)
 
 
 def write_breaking(cfg: Settings, echo: dict, seg: Segment) -> str:
-    fallback = f"Breaking update from Gu: {seg.story.title}. Details from {outlet_name(seg.story.source)} as they come in."
+    fallback = f"Breaking update from Gu: {seg.story.title}. More as it comes in."
     system = (f"{STANDARDS}\n{tone_instruction(echo, True)}\n"
               "Write a breaking-news bumper of 30 words or fewer: urgent but not alarmist. Start with "
-              "'Breaking update from Gu:'. Attribute the outlet. Output the read only.")
-    return _try_llm(cfg, system, f"Material:\n{_material(seg)}", fallback)
+              "'Breaking update from Gu:'. Output the read only.")
+    return scrub_outlets(_try_llm(cfg, system, f"Material:\n{_material(seg)}", fallback))
 
 
 def write_sponsor_read(cfg: Settings, talent: dict, sponsor: dict) -> str:

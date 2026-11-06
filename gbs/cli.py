@@ -14,6 +14,8 @@
   newsroom   show who's on air now and the desk assignments
   heygen-list  list HeyGen avatars + voices to fill config/newsroom.json
   comfy-ping check ComfyUI on StarNet
+  account-server  sign-in + membership service for /auth/ and /billing/ (127.0.0.1:8710)
+  stock-images    refresh the Openverse CC0 / public-domain image pool now
 """
 from __future__ import annotations
 
@@ -99,6 +101,20 @@ def cmd_rundown(cfg) -> int:
         seg.anchor_id, seg.presenter_title = p["name"], p["title"]
         seg.script = sw.write_script(cfg, seg, p)
 
+    # web-only desk briefs: fill thin sections with stories that didn't make air
+    import os
+    from gbs.editorial.rundown import desk_briefs
+    from gbs.site.data import PublishedStore
+    per = int(os.getenv("GBS_SITE_EXTRA_PER_DESK", "3"))
+    briefs = []
+    if per > 0:
+        known = PublishedStore(cfg.data_dir / "published.db").slugs()
+        briefs = desk_briefs(stories, {s.story.item_hash for s in rundown}, per, known)
+        for seg in briefs:
+            p = presenter_for_desk(seg.story.desk, nr, desk_anchor)
+            seg.anchor_id, seg.presenter_title = p["name"], p["title"]
+            seg.script = sw.write_script(cfg, seg, p)
+
     by_name = {t["name"]: t for t in nr["talent"]}
     AdBook().assign_on_air(rundown, write_fn=lambda sp, seg: sw.write_sponsor_read(cfg, by_name[seg.anchor_id], sp))
     pulse = market_pulse(cfg)
@@ -128,13 +144,13 @@ def cmd_rundown(cfg) -> int:
     save_edition(cfg, show, bookends, pulse, rundown)
     videos = {}
     if cfg.render_on_run and should_render(show, now):
-        build_site(cfg, rundown, pulse=pulse, show=show, bookends=bookends)  # writes rundown.json
+        build_site(cfg, rundown, pulse=pulse, show=show, bookends=bookends, extra=briefs)  # writes rundown.json
         top = cfg.render_top or show.get("render_top", 1)
         videos = render_rundown(cfg, json.loads((cfg.site_out / "rundown.json").read_text()), top=top)
-    out = build_site(cfg, rundown, pulse=pulse, videos=videos, show=show, bookends=bookends)
+    out = build_site(cfg, rundown, pulse=pulse, videos=videos, show=show, bookends=bookends, extra=briefs)
     store.mark_used([s.story.item_hash for s in rundown] +
                     [r.item_hash for s in rundown for r in s.related])
-    print(f"{show['name']} ({anchor['name']}): published {len(rundown)} segments -> {out}")
+    print(f"{show['name']} ({anchor['name']}): published {len(rundown)} segments + {len(briefs)} web briefs -> {out}")
     return 0
 
 
@@ -366,7 +382,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="gbs")
     p.add_argument("command", choices=["ingest", "pulse", "rundown", "run", "studio", "comfy-ping",
                                        "heygen-list", "newsroom", "comfy-tokenize", "comfy-portraits",
-                                       "comfy-voices", "newsletter"])
+                                       "comfy-voices", "newsletter", "account-server", "stock-images"])
     p.add_argument("src", nargs="?", help="comfy-tokenize: API-format export to convert; newsletter: build|send")
     p.add_argument("--kind", choices=["anchor_talking", "tts", "tts_design", "anchor_portrait"])
     p.add_argument("--force", action="store_true", help="regenerate existing portraits/voices; resend today's newsletter")
@@ -404,6 +420,15 @@ def main(argv=None) -> int:
         return cmd_newsroom(cfg)
     if a.command == "heygen-list":
         return cmd_heygen_list(cfg)
+    if a.command == "account-server":
+        from gbs.account.server import serve
+        serve()
+        return 0
+    if a.command == "stock-images":
+        from gbs.site.images import refresh
+        pool = refresh(cfg.data_dir / "stock")
+        print({k: len(v) for k, v in pool.items()})
+        return 0 if pool else 1
     if a.command == "comfy-ping":
         from gbs.anchors.comfy_client import ComfyClient
         ok = ComfyClient(cfg.comfy_url).healthy()

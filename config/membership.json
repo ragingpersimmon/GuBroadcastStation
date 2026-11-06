@@ -1,0 +1,44 @@
+{
+  "_note": "Membership plans, shown on /membership/. Prices mirror the flowerseekingbee.com Hive tiers; change freely. Each paid plan needs a Stripe price id in .env (price_env). A plan with no price id shows as 'Opening soon'. Perks must be things Gu actually delivers.",
+  "currency": "CAD",
+  "free": {
+    "name": "Free account",
+    "perks": [
+      "Read every story, watch every clip, no account needed",
+      "Sign in with Google, Microsoft, GitHub or Facebook",
+      "One click to become a member later"
+    ]
+  },
+  "plans": [
+    {
+      "id": "monthly",
+      "name": "Gu Member",
+      "price": "CA$9",
+      "interval": "per month",
+      "mode": "subscription",
+      "price_env": "STRIPE_PRICE_MONTHLY",
+      "perks": ["No ads on gubs.ca", "Member badge on your account", "Keeps an always-on AI newsroom running", "Cancel any time"]
+    },
+    {
+      "id": "yearly",
+      "name": "Gu Member, yearly",
+      "price": "CA$89",
+      "interval": "per year",
+      "mode": "subscription",
+      "price_env": "STRIPE_PRICE_YEARLY",
+      "badge": "Two months free",
+      "perks": ["Everything in Gu Member", "Billed once a year", "Cancel any time"]
+    },
+    {
+      "id": "founding",
+      "name": "Founding Member",
+      "price": "CA$365",
+      "interval": "one payment, membership for life",
+      "mode": "payment",
+      "price_env": "STRIPE_PRICE_FOUNDING",
+      "badge": "Limited",
+      "limit": 100,
+      "perks": ["Everything in Gu Member, for life", "Founding Member badge", "One of the first 100 supporters"]
+    }
+  ]
+}

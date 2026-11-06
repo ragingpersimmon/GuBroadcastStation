@@ -3,7 +3,7 @@ in the last 24 hours.
 
 Issue shape (same every day, so readers learn it):
   Harold Yi's signature open + "Today we have ..." tease
-  Top stories (3): headline, one-line standfirst, source credit
+  Top stories (3): headline, one-line standfirst (no outlet credits: sources stay confidential)
   Around the world / Politics / Business / Tech & science / Culture & sports:
       one or two headlines each
   Market pulse + local weather (when available)
@@ -20,7 +20,6 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from gbs.config import Settings
-from gbs.editorial.scriptwriter import outlet_name
 from gbs.editorial.standards import is_sensitive
 from gbs.site.data import PublishedStore, article_url, section_of
 
@@ -80,10 +79,6 @@ def _link(cfg: Settings, path: str, campaign: str) -> str:
     return f"{cfg.site_url}{path}?{q}"
 
 
-def _credits(a: dict) -> str:
-    return ", ".join(dict.fromkeys(outlet_name(s["source"]) for s in a.get("sources") or []))
-
-
 def _opening(cfg: Settings, top: list[dict]) -> str:
     """Harold Yi's signature open, morning daypart, no weekly variant in email."""
     from gbs.anchors.roster import by_id, load_newsroom
@@ -116,9 +111,8 @@ def build_issue(cfg: Settings, articles: list[dict], now: datetime, pulse: dict 
         size = "22px" if big else "17px"
         sf = (f'<p style="margin:6px 0 0;font:16px/1.5 {SERIF};color:{SLATE}">{e(a["standfirst"])}</p>'
               if big and a.get("standfirst") else "")
-        cred = _credits(a)
-        src = (f'<p style="margin:6px 0 0;font:13px/1.4 {SANS};color:{SLATE}">Sources: {e(cred)}'
-               + (" · <b style='color:" + INK + "'>Watch</b>" if a.get("video") else "") + "</p>") if cred else ""
+        src = (f'<p style="margin:6px 0 0;font:13px/1.4 {SANS};color:{SLATE}"><b style="color:{INK}">Watch</b></p>'
+               if a.get("video") else "")
         return (f'<tr><td style="padding:14px 0;border-bottom:1px solid {RULE}">'
                 f'<a href="{e(url)}" style="font:bold {size}/1.25 {SERIF};color:{INK};text-decoration:none">{e(a["title"])}</a>'
                 f'{sf}{src}</td></tr>')
@@ -163,8 +157,7 @@ def build_issue(cfg: Settings, articles: list[dict], now: datetime, pulse: dict 
 <tr><td style="height:16px"></td></tr>
 {spons}
 <tr><td style="padding:22px 0 8px;font:13px/1.6 {SANS};color:{SLATE}">
- Gu's anchors and reporters are AI-generated characters. Every story is an original summary of reporting by the outlets
- credited above; follow the links for their full coverage.
+ Gu's anchors and reporters are AI-generated characters. Every story is written in our own words.
  <a href="{e(_link(cfg, "/about/ai/", camp))}" style="color:{SLATE}">How Gu uses AI</a> ·
  <a href="{e(_link(cfg, "/about/corrections/", camp))}" style="color:{SLATE}">Corrections</a><br><br>
  You're getting this because you subscribed to {e(name)} at {e(cfg.site_url.replace("https://", ""))} and confirmed your address.
@@ -176,7 +169,7 @@ def build_issue(cfg: Settings, articles: list[dict], now: datetime, pulse: dict 
     t = [f"{name} | {nice}", f"Read on the web: {web}", "", opening, "", "TOP STORIES", ""]
     for a in top:
         t += [a["title"], *([a["standfirst"]] if a.get("standfirst") else []),
-              f"Sources: {_credits(a)}", _link(cfg, article_url(a), camp), ""]
+              _link(cfg, article_url(a), camp), ""]
     for gname, items in groups:
         t += [gname.upper(), ""]
         for a in items:
@@ -188,8 +181,8 @@ def build_issue(cfg: Settings, articles: list[dict], now: datetime, pulse: dict 
     if sponsor:
         w = sponsor.get("web") or {}
         t += ["", f"SPONSORED: {w.get('headline', sponsor['name'])}. {w.get('body', '')}"]
-    t += ["", "Gu's anchors and reporters are AI-generated characters. Every story is an original summary of reporting "
-          "by the outlets credited above.", f"How Gu uses AI: {cfg.site_url}/about/ai/"]
+    t += ["", "Gu's anchors and reporters are AI-generated characters. Every story is written in our own words.",
+          f"How Gu uses AI: {cfg.site_url}/about/ai/"]
     slugs = [a["slug"] for a in top] + [a["slug"] for _, items in groups for a in items]
     return Issue(date=date, subject=subject, preheader=preheader, html=body, text="\n".join(t), slugs=slugs)
 

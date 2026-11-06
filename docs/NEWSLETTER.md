@@ -4,9 +4,9 @@
 
 | Question | Answer |
 |---|---|
-| Purpose | The day's world news in about 3 minutes, every story linked to the outlets that reported it. |
-| Audience | People who want a fast, sourced overview, not another opinion feed. |
-| Angle | Sources-first summaries from an AI newsroom that shows its work: every link, every outlet, every correction. |
+| Purpose | The day's world news in about 3 minutes. |
+| Audience | People who want a fast, plain overview, not another opinion feed. |
+| Angle | Short, plain summaries in Gu's own words from an AI newsroom that corrects itself in public. (Sources stay confidential.) |
 | Cadence | Weekdays, built 05:45 Pacific, sent about 06:00 (`gubroadcast-newsletter.timer`). Stick to it. |
 | Platform | **Kit (kit.com), free Newsletter plan**: up to 10,000 subscribers, unlimited broadcasts, double opt-in forms, API on the free plan. Beehiiv's create-post API needs Max/Enterprise, and Substack has no API, so neither can run unattended. |
 | Format | Harold Yi's signature open, 3 top stories, 1–2 headlines per desk, market pulse + weather, at most one labelled sponsor. Same shape every day. |
@@ -65,7 +65,7 @@ The free plan includes the double opt-in confirmation email but not sequences, s
 >
 > GUUd morning (or whenever you're reading this). One click and you're in: [Confirm my subscription]
 >
-> From the next weekday at 6 a.m. Pacific you'll get The Gu Briefing: the top stories in about three minutes, each one linked to the outlets that reported it.
+> From the next weekday at 6 a.m. Pacific you'll get The Gu Briefing: the top stories in about three minutes.
 >
 > Didn't sign up? Ignore this email and you won't hear from us again.
 
@@ -83,7 +83,7 @@ The free plan includes the double opt-in confirmation email but not sequences, s
 **Email 3: how Gu works (Creator plan sequence, day 3)**
 > Subject: How an AI newsroom shows its work
 >
-> Short version: we read established outlets, summarize in our own words, link every source, and correct mistakes in public. The long version: gubs.ca/about/ai/ · Our standards: gubs.ca/about/standards/
+> Short version: we follow the world's news, summarize it in our own words, and correct mistakes in public. The long version: gubs.ca/about/ai/ · Our standards: gubs.ca/about/standards/
 >
 > If a story ever looks wrong, reply to any issue.
 
