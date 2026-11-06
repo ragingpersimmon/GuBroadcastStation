@@ -82,15 +82,38 @@ class PublishedStore:
                             [json.dumps(r[c]) if c == "sources" else r.get(c) for c in COLS])
         self.db.commit()
 
+    def slugs(self) -> set[str]:
+        return {r[0] for r in self.db.execute("SELECT slug FROM published")}
+
     def recent(self, days: int = 30) -> list[dict]:
         rows = self.db.execute(f"SELECT {','.join(COLS)} FROM published WHERE ts>=? ORDER BY ts DESC",
                                (time.time() - days * 86400,)).fetchall()
         out = []
         for row in rows:
             d = dict(zip(COLS, row))
-            d["sources"] = json.loads(d["sources"] or "[]")
-            out.append(d)
+            d["sources"] = json.loads(d["sources"] or "[]")   # internal only: never rendered
+            out.append(public_view(d))
         return out
+
+
+_TITLE_TAIL = re.compile(r"\s+[-|\u2013\u2014]\s+(BBC( News| Sport)?|The Guardian|NPR|Al Jazeera|DW|France 24|"
+                         r"Global News|UN News|NHK( WORLD)?|The Korea Herald|Ars Technica|NASA|Reuters|AP News|CNBC|"
+                         r"ESPN|The Verge|MarketWatch|ScienceDaily)\s*$", re.I)
+
+
+def public_view(a: dict) -> dict:
+    """What the public may see of a stored story. Sources stay confidential
+    (Ric, 2026-11-06): outlet names come out of the text, and stories written
+    by the old no-LLM template (headline + the feed's own first sentence +
+    "according to ...") fall back to the headline only, since that sentence
+    was the outlet's words, not ours."""
+    from gbs.editorial.scriptwriter import scrub_outlets
+    title = _TITLE_TAIL.sub("", a.get("title") or "").strip()
+    script = a.get("script") or ""
+    if re.search(r"Full sourcing is on our site|That's according to", script):
+        script = f"{title.rstrip('.')}."
+    script = scrub_outlets(script)
+    return {**a, "title": title, "script": script, "standfirst": standfirst(script, title)}
 
 
 def article_url(a: dict) -> str:

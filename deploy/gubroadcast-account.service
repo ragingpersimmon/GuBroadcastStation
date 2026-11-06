@@ -1,0 +1,16 @@
+[Unit]
+Description=Gu Broadcasting Station - sign-in + membership service (/auth/, /billing/)
+After=network-online.target
+
+[Service]
+User=gbs
+WorkingDirectory=/opt/gubroadcast
+EnvironmentFile=/opt/gubroadcast/.env
+ExecStart=/opt/gubroadcast/.venv/bin/python -m gbs account-server
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

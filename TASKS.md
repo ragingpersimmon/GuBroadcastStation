@@ -32,7 +32,7 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 - [x] **T12b [ric/agent]** (blocked: T11b, T13) On the droplet: `sudo DOMAIN=gubs.ca CERT_EMAIL=<you> deploy/provision_droplet.sh`. It bootstraps HTTP, gets the Let's Encrypt cert for gubs.ca + www, installs the HTTPS config and enables both timers. Then check `curl -I https://gubs.ca`.
 - [ ] **T13 [ric]** Add a read-only deploy key for the private `5protocol` submodule on the droplet. Put `PHONE_PUSH_KEY` in `/opt/gubroadcast/.env` for the market pulse.
 - [ ] **T14 [agent]** (blocked: T12) On the droplet, run `python -m gbs ingest` and check every feed in `gbs/newsdesk/feeds.py` returns items. Fix or replace dead RSS URLs and log any changes here. (They couldn't be verified from the build sandbox.)
-- [ ] **T15 [ric]** Set `GBS_LOCAL_NAME/LAT/LON` (Celeste's weather) and decide on traffic: the Open511 / DriveBC feed URL for `GBS_TRAFFIC_OPEN511_URL`.
+- [x] **T15 [ric]** Local desks default to Vancouver + DriveBC Open511 (Metro Vancouver box) since 2026-11-06; override with `GBS_LOCAL_*` / `GBS_TRAFFIC_OPEN511_URL`.
 - [ ] **T16 [agent]** (blocked: T15) Check that the weather and traffic segments render against live data. Confirm the DriveBC Open511 query parameters (area / bbox) for the chosen region.
 - [ ] **T17 [agent]** Point `LLM_BASE_URL` at Strata or the 27B and review 10 real scripts for each beat (open, story, sponsor read, breaking, close). Tune the prompts in `gbs/editorial/scriptwriter.py` and `standards.py`. Persona humour must never appear on serious stories.
 
@@ -68,6 +68,20 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 - [ ] **T35 [agent]** Self-host the two web fonts (Archivo, Source Serif 4) under `/assets/fonts/` so no request goes to Google, and update `/privacy/`.
 - [ ] **T36 [agent]** Set `social` handles in `config/site.json` once accounts exist (footer shows only filled ones).
 
+## 5c. Membership, confidentiality, look (2026-11-06)
+
+- [x] **T37 [agent]** Beige newsprint theme (no dark mode); rotating trending headline in the top bar (pausable); date + local weather on the right.
+- [x] **T38 [agent]** Sources confidential: no outlet names/links on site, newsletter, RSS, search, JSON-LD; `/about/sources/` removed; on-air scripts never name outlets (`scrub_outlets`). Old template stories render headline-only (their 2nd sentence was the feed's own words).
+- [x] **T39 [agent]** Fill thin sections: 12 more feeds, 3 web-only desk briefs per desk per edition (`GBS_SITE_EXTRA_PER_DESK`), live `/local/weather/` + `/local/traffic/`, video page fallback.
+- [x] **T40 [agent]** Openverse CC0/public-domain topic images (`gbs/site/images.py`), labelled "Illustrative image", none on sensitive stories.
+- [x] **T41 [agent]** Sign-in (Google, Microsoft, GitHub, Facebook) + Stripe membership service, `/login/ /account/ /membership/`. Runbook: `docs/MEMBERSHIP.md`.
+- [ ] **T42 [ric]** OAuth clients (at least Google) per `docs/MEMBERSHIP.md` §1, keys into `.env`.
+- [ ] **T43 [ric]** Stripe account for Gu + product/prices/key/webhook per §2 (agent can do the dashboard steps in Chrome once the account exists).
+- [ ] **T44 [agent]** (blocked: T14) On the droplet, confirm the 12 new feeds return items; drop dead ones.
+- [ ] **T45 [ric/agent]** Open-Meteo's free API is non-commercial only. Before ads or paid membership go live, switch weather to Environment Canada (MSC GeoMet, Open Government Licence) or buy an Open-Meteo API plan.
+- [ ] **T46 [agent]** Rebase `i18n/languages` on main; drop catalog strings about sources; add tests; ship.
+- [ ] **T47 [agent]** (blocked: T17 LLM) Until the LLM is reachable, stories are headline-only. Once it is, review 10 scripts for outlet names leaking.
+
 ## 6. Housekeeping
 
 - [x] **T28 [ric]** Review and merge PR #1 (`groundwork/news-bridge`) into `main`.
@@ -88,6 +102,8 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 ## Findings log
 
 _Agents: append dated notes here (render timings, dead feeds, prompt changes)._
+
+- 2026-11-06: Ric: sources are confidential for operational reasons; site went beige; trending ticker replaces the on-air strip; sign-in + membership (Stripe) modelled on flowerseekingbee.com. Without an LLM the old template copied each feed's first sentence verbatim; it now publishes the headline only. Droplet also runs the Vantage Supplements stack (Spree/puma in Docker), ~1.2 of 2 GB RAM used before the account service.
 
 - 2026-11-06: Droplet gu-broadcast-station-604 (167.99.178.46, TOR1, 2 GB) provisioned; HTTPS cert for gubs.ca + www issued. CBC webfeeds hang from DO IPs (TLS stalls, no close) and froze the first edition; replaced with Global News, plus a hard socket timeout (GBS_FEED_TIMEOUT, 20 s). Submodule pin had been missing from main; restored (53e269f).
 

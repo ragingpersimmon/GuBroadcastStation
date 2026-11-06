@@ -13,6 +13,7 @@ from gbs.models import Segment, Story
 from gbs.newsletter import run
 from gbs.newsletter.compose import build_issue, gather, load_issues, pick
 from gbs.site.build import build_site, rebuild_newsletter_pages
+from gbs.site.data import public_view
 
 TZ = ZoneInfo("America/Vancouver")
 NOW = datetime(2026, 11, 6, 5, 45, tzinfo=TZ)  # a Friday
@@ -44,6 +45,7 @@ def _recent(store, days):
     for r in rows:
         d = dict(zip(COLS, r))
         d["sources"] = json.loads(d["sources"] or "[]")
+        d = public_view(d)
         d["ts"] = NOW.timestamp() - 3600  # published an hour before the send
         out.append(d)
     return out
@@ -74,7 +76,7 @@ def test_issue_contents(cfg):
     assert len({t["desk"] for t in top}) == 3                       # top 3 from 3 different sections
     assert issue.subject.startswith("Ceasefire")
     assert "GUUd morning, listeners. This is Harold Yi at Gu Broadcasting Station" in issue.html
-    assert "Sources: BBC News, The Guardian, NPR, DW" in issue.html
+    assert "Sources:" not in issue.html and "BBC" not in issue.html and "BBC" not in issue.text
     assert "utm_source=gu-briefing" in issue.html and "/story/" in issue.html
     assert "AI-generated characters" in issue.html and "Sponsored" in issue.html
     assert "Market pulse" in issue.html and "Coquitlam forecast" in issue.html

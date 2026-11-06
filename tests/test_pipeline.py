@@ -72,13 +72,15 @@ def test_bridge_to_site(tmp_path):
     for seg in rundown:
         seg.anchor_id, seg.presenter_title = lena["name"], lena["title"]
         seg.script = write_script(cfg, seg, lena)
-        assert "according to" in seg.script
+        assert "according to" not in seg.script                # no on-air outlet credits
+        assert seg.script == seg.story.title.rstrip(".") + "."   # no LLM: headline only, no copied summary
 
     out = build_site(cfg, rundown, pulse={"regime": "calm"})
     index = (out / "index.html").read_text()
     assert "AI-generated" in index
     quake_pages = list((out / "story").rglob(f"{quake.slug}.html"))
-    assert quake_pages and "guardian.example/9" in quake_pages[0].read_text()
+    assert quake_pages and "guardian.example" not in quake_pages[0].read_text()   # sources confidential
+    assert "guardian.example/9" in (out / "rundown.json").read_text()             # ...but kept internally
     assert (out / "feed.xml").exists() and (out / "sitemap.xml").exists()
     assert len(json.loads((out / "rundown.json").read_text())) == 3
     # trading-bot state files untouched: bridge writes only under GBS data dir

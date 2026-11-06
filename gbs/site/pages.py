@@ -1,4 +1,4 @@
-"""Static prose pages: about, standards, AI, corrections, sources, contact,
+"""Static prose pages: about, standards, AI, corrections, contact,
 tips, advertise, sponsorship guidelines and the legal set.
 
 Legal pages are starting templates written for a small Canadian operator
@@ -9,14 +9,11 @@ from __future__ import annotations
 import html
 import json
 from pathlib import Path
-from urllib.parse import urlparse
 
-from gbs.editorial.scriptwriter import OUTLET_NAMES
-from gbs.newsdesk.feeds import WORLD_FEEDS, outlet_of
 
 e = html.escape
 REPO = Path(__file__).resolve().parents[2]
-UPDATED = "November 4, 2026"
+UPDATED = "November 6, 2026"
 
 
 def _mail(addr: str) -> str:
@@ -30,22 +27,20 @@ def _legal_flag() -> str:
 
 def about(ctx):
     n = ctx.site
-    return ("/about/", "About Gu", "An AI-presented news service that summarizes reporting from trusted outlets and "
-            "credits every source.",
+    return ("/about/", "About Gu", "World news, rewritten in our own words and presented by AI anchors.",
             f"""<p>Gu Broadcasting Station is a news service presented entirely by AI-generated anchors and reporters.
-Around the clock, Gu reads the world's news from established outlets, picks the stories that matter, and
-presents short, original summaries on screen and on this site. Every story links to the reporting it is
-based on.</p>
+Around the clock, Gu follows the world's news, picks the stories that matter, and presents short, original
+summaries on screen and on this site.</p>
 <h2>What Gu is</h2>
-<ul><li>A summary service. Gu does not send reporters into the field. Our stories rewrite and condense reporting
-by the outlets credited on each page, and we link to their original coverage.</li>
+<ul><li>A summary service. Gu does not send reporters into the field. Our stories condense published reporting
+into short scripts written in our own words.</li>
 <li>Presented by AI characters. Harold Yi, Tessa Vale, NOVA, Lena Moravec and the rest of our cast
 are fictional, AI-generated presenters. None of them is a real person. <a href="/people/">Meet the cast</a>.</li>
 <li>Always on. A new edition goes out about every 15 minutes, with flagship shows in the morning, evening and
 at weekends. <a href="/shows/">See the schedule</a>.</li></ul>
 <h2>How we decide what to cover</h2>
-<p>Gu reads more than two dozen news feeds across world, politics, business, technology, science, entertainment and
-sports. Stories covered by several outlets rank higher. Each edition is balanced across regions and topics so that one
+<p>Gu follows news across world, politics, business, technology, science, entertainment and sports. Stories
+that are widely reported rank higher. Each edition is balanced across regions and topics so that one
 story can't crowd out the rest of the world. Our <a href="/about/standards/">editorial standards</a> explain the rules
 every script follows, and <a href="/about/ai/">How Gu uses AI</a> explains the technology.</p>
 <h2>Who runs Gu</h2>
@@ -65,12 +60,12 @@ a show open, a breaking update or a sponsor message, is written under these stan
 line sums them up: we don't punch down; we punch through. Lead anchor Harold Yi's sign-on says the rest: we
 follow the story for your better insight.</p>
 <h2>Accuracy</h2>
-<ul><li>We state only what our sources report. No invented quotes, figures, names, places or speculation.</li>
-<li>When outlets disagree, we say so, or we wait.</li>
-<li>Breaking updates are short and attributed, and they are marked as developing.</li></ul>
-<h2>Attribution</h2>
-<ul><li>Every story names its sources on air ("according to...") and links to them on the page.</li>
-<li>We write in our own words. We never republish another outlet's article text.</li></ul>
+<ul><li>We state only what has been reported. No invented quotes, figures, names, places or speculation.</li>
+<li>When reports disagree, we say so, or we wait.</li>
+<li>Breaking updates are short, and they are marked as developing.</li></ul>
+<h2>Our own words</h2>
+<ul><li>Every script is written in our own words. We never republish another publisher's article text.</li>
+<li>Claims are framed as claims: who said what stays clear in the script.</li></ul>
 <h2>Tone</h2>
 <ul><li>Our presenters have personalities, and that shows in how they speak, never in the facts.</li>
 <li>No jokes, puns or wordplay on stories about death, injury, violence, war, disasters, crime victims, illness or
@@ -102,17 +97,16 @@ def ai(ctx):
     return ("/about/ai/", "How Gu uses AI",
             "What is automated at Gu, what isn't, and where the facts come from.",
             """<p>Gu is an experiment in AI-presented news, and we think you should know exactly how it works.</p>
-<h2>The facts come from journalists</h2>
-<p>Gu reads news feeds from established outlets such as BBC News, The Guardian, NPR, CBC, Al Jazeera, DW and NHK.
-<a href="/about/sources/">See the full list</a>. The facts in every Gu story come from that reporting, and every story
-links to it.</p>
+<h2>The facts come from published reporting</h2>
+<p>Gu does not report from the field. The facts in every Gu story come from news that has already been published,
+which Gu condenses and rewrites.</p>
 <h2>What AI does</h2>
 <table><thead><tr><th>Step</th><th>What happens</th></tr></thead><tbody>
 <tr><td>Selection</td><td>Software groups articles about the same event, ranks them by how widely they are covered and how
 urgent they are, and balances each edition across regions and topics.</td></tr>
 <tr><td>Writing</td><td>A language model running on our own hardware rewrites each story as a short spoken script, under
-our <a href="/about/standards/">editorial standards</a>. If the model is unavailable, a plain summary of the source
-headline is used instead.</td></tr>
+our <a href="/about/standards/">editorial standards</a>. If the model is unavailable, the story runs as a
+headline only until it can be rewritten.</td></tr>
 <tr><td>Voice</td><td>An AI voice model gives each character a consistent synthetic voice. Voices are invented; we do not
 clone real people.</td></tr>
 <tr><td>Video</td><td>An AI video model animates each character's portrait to the script. The portraits are generated and
@@ -123,8 +117,7 @@ depict no real person.</td></tr>
 <li>It doesn't make images of real events or real people.</li>
 <li>It doesn't decide what sponsors say. Sponsor copy is provided by the sponsor and labelled.</li></ul>
 <h2>Known limits</h2>
-<p>Summaries can lose nuance, and AI can make mistakes. That is why every story links to its sources, and why we
-correct errors openly. If something looks wrong, <a href="/about/corrections/">tell us</a>.</p>""")
+<p>Summaries can lose nuance, and AI can make mistakes. That is why we correct errors openly. If something looks wrong, <a href="/about/corrections/">tell us</a>.</p>""")
 
 
 def corrections(ctx):
@@ -137,43 +130,16 @@ def corrections(ctx):
         log = "<p>No corrections have been published yet.</p>"
     return ("/about/corrections/", "Corrections",
             "How to report an error, and every correction we have made.",
-            f"""<p>We correct errors promptly and openly. If a Gu story misstates what its sources reported, or a source
-itself has issued a correction, we fix the story and add a note explaining what changed.</p>
+            f"""<p>We correct errors promptly and openly. If a Gu story misstates what was reported, or the original
+report has been corrected, we fix the story and add a note explaining what changed.</p>
 <h2>Report an error</h2>
-<p>Email {_mail(ctx.emails['corrections'])} with the story link and what is wrong. A link to a source helps us check
-quickly. We aim to review every report within one business day.</p>
+<p>Email {_mail(ctx.emails['corrections'])} with the story link and what is wrong. A link to the original report helps
+us check quickly. We aim to review every report within one business day.</p>
 <h2>What we change</h2>
 <ul><li>Factual errors are corrected in the story with a dated note at the end.</li>
 <li>Clips that contain an error are taken down and re-rendered or removed.</li>
 <li>Typos and formatting fixes are made without a note.</li></ul>
 <h2>Published corrections</h2>{log}""")
-
-
-def sources(ctx):
-    seen = {}
-    for key, url in WORLD_FEEDS.items():
-        o = outlet_of(key)
-        name = OUTLET_NAMES.get(o, o)
-        host = urlparse(url).hostname or ""
-        home = "https://" + ".".join(host.split(".")[-2:]) if host.count(".") >= 1 else url
-        overrides = {"BBC News": "https://www.bbc.com/news", "BBC Sport": "https://www.bbc.com/sport",
-                     "Global News": "https://globalnews.ca",
-                     "NPR": "https://www.npr.org", "The Guardian": "https://www.theguardian.com",
-                     "UN News": "https://news.un.org", "NHK": "https://www3.nhk.or.jp/nhkworld/",
-                     "DW": "https://www.dw.com", "France 24": "https://www.france24.com/en/",
-                     "Al Jazeera": "https://www.aljazeera.com", "The Korea Herald": "https://www.koreaherald.com",
-                     "Ars Technica": "https://arstechnica.com", "NASA": "https://www.nasa.gov"}
-        seen.setdefault(name, overrides.get(name, home))
-    rows = "".join(f'<li><a href="{e(u)}" rel="noopener">{e(n)}</a></li>' for n, u in sorted(seen.items()))
-    return ("/about/sources/", "Our sources",
-            "The outlets whose reporting Gu summarizes and links to.",
-            f"""<p>Every Gu story is based on reporting from the outlets below, and links to the original article.
-We read their public news feeds, and we encourage you to read and support them.</p>
-<ul>{rows}</ul>
-<p>Local weather comes from <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a>. Traffic, where available,
-comes from public road-event feeds such as <a href="https://www.drivebc.ca/" rel="noopener">DriveBC</a>. Our market
-pulse is computed from business headlines.</p>
-<p>Are you a publisher with a question about how we use your reporting? Email {_mail(ctx.emails['general'])}.</p>""")
 
 
 def contact(ctx):
@@ -190,9 +156,9 @@ def contact(ctx):
 
 
 def tips(ctx):
-    return ("/tips/", "Send a tip", "Know about a story the world's outlets are missing? Tell us.",
-            f"""<p>Gu summarizes reporting from established outlets, so the best tips point us to coverage we have
-missed: a story that matters to your community, a region we under-cover, or a source we should be reading.</p>
+    return ("/tips/", "Send a tip", "Know about a story the world is missing? Tell us.",
+            f"""<p>The best tips point us to coverage we have missed: a story that matters to your community, or a
+region we under-cover.</p>
 <p>Email {_mail(ctx.emails['tips'])}. Include links where you can.</p>
 <h2>Protect yourself</h2>
 <p>Email is not anonymous. If your tip is sensitive, consider contacting an established investigative outlet
@@ -255,13 +221,19 @@ Electronic Documents Act (PIPEDA), Canada's Anti-Spam Legislation (CASL) for our
 security and to count traffic. We keep raw logs for no more than 30 days.</li>
 <li><strong>Newsletter:</strong> your email address and when you confirmed it. We use a confirm-by-email (double opt-in) sign-up, so you only get The Gu Briefing after you ask for it. It's sent through our email provider, Kit (kit.com), which also records opens and clicks so we can see which stories readers want. You can unsubscribe from any issue in one click.</li>
 <li><strong>Messages you send us:</strong> your email and what you write, used to reply.</li>
+<li><strong>If you sign in:</strong> your name, email address and an account ID from the provider you choose (Google,
+Microsoft, GitHub or Facebook), plus when you signed in. We never receive your password.</li>
+<li><strong>If you become a member:</strong> your plan, its status and renewal date. Payments are handled by Stripe
+(stripe.com); we never see or store your card number.</li>
 <li><strong>Advertising:</strong> if ad-network ads are switched on, our partner may use cookies. See the
 <a href="/cookies/">cookie policy</a>.</li></ul>
 <h2>What we don't do</h2>
 <ul><li>We don't sell personal information.</li>
-<li>We don't require an account to read Gu.</li></ul>
+<li>We don't require an account to read Gu.</li>
+<li>We don't post anything to your sign-in provider.</li></ul>
 <h2>Who we share with</h2>
-<p>Service providers that run parts of Gu for us: hosting, email delivery and, if enabled, an ad network. They may
+<p>Service providers that run parts of Gu for us: hosting, email delivery, sign-in providers, payments (Stripe) and,
+if enabled, an ad network. They may
 process data outside Canada.</p>
 <h2>Your choices and rights</h2>
 <p>You can unsubscribe from any newsletter in one click. You can ask to see, correct or delete the personal information
@@ -278,11 +250,15 @@ def terms(ctx):
 <p>You may read, watch and share links to Gu for personal, non-commercial use. Please don't scrape, republish or
 redistribute Gu stories or video in bulk without written permission.</p>
 <h2>AI-presented content</h2>
-<p>Gu stories are AI-written summaries of third-party reporting, presented by AI-generated characters. They may contain
-errors. Check the linked sources before relying on any story, and don't treat Gu as professional, financial, medical or
+<p>Gu stories are AI-written summaries of published reporting, presented by AI-generated characters. They may contain
+errors. Check important facts independently before relying on any story, and don't treat Gu as professional, financial, medical or
 legal advice. The market pulse is a reading of the news, not a recommendation to buy or sell anything.</p>
-<h2>Third-party content</h2>
-<p>Linked articles belong to their publishers and are governed by their terms.</p>
+<h2>Accounts and membership</h2>
+<p>Reading Gu is free. You can sign in with a supported provider and buy a membership. Monthly and yearly memberships
+renew automatically until you cancel from your account page; cancelling stops the next renewal, and you keep member
+benefits to the end of the period you paid for. The Founding Member payment is one-time and covers the life of the Gu
+service. We refund any charge on request within 14 days. Prices are in Canadian dollars; taxes may apply. We may close
+an account that abuses the service, and refund any unused paid period when we do.</p>
 <h2>Our content</h2>
 <p>Gu's scripts, characters, video, design and name belong to {e(s['operator'])}. Our characters may not be used to
 endorse anything without permission.</p>
@@ -302,6 +278,9 @@ def cookies(ctx):
 <h2>What we store in your browser</h2>
 <table><thead><tr><th>Item</th><th>Purpose</th><th>Kept for</th></tr></thead><tbody>
 <tr><td>gu-consent (local storage)</td><td>Remembers your cookie choice</td><td>Until you clear it</td></tr>
+<tr><td>gu_s (only if you sign in)</td><td>Keeps you signed in</td><td>30 days, or until you sign out</td></tr>
+<tr><td>gu_m (only if you sign in)</td><td>Tells the page whether to hide ads for members</td><td>30 days</td></tr>
+<tr><td>gu_oauth (only while signing in)</td><td>Protects the sign-in round trip against forgery</td><td>10 minutes</td></tr>
 <tr><td>Ad-network cookies (only when advertising is on and you accept)</td><td>Showing and measuring ads</td><td>Set by
 the ad partner; see its policy</td></tr>
 </tbody></table>
@@ -315,7 +294,8 @@ def accessibility(ctx):
 <h2>What we do</h2>
 <ul><li>Every video has the full script printed beneath it on the story page.</li>
 <li>Pages work with keyboard navigation and screen readers, and show a visible focus outline.</li>
-<li>Text meets WCAG 2.1 AA contrast in light and dark mode, and the site respects reduced-motion settings.</li>
+<li>Text meets WCAG 2.1 AA contrast, the site respects reduced-motion settings, and the rotating trending headline
+pauses on hover, on keyboard focus and with its pause button.</li>
 <li>Pages reflow on small screens and when zoomed to 200%.</li></ul>
 <h2>Known gaps</h2>
 <ul><li>Video clips don't yet have burned-in captions. The script on each page is the full transcript.</li></ul>
@@ -324,5 +304,5 @@ def accessibility(ctx):
 
 
 def all_pages(ctx):
-    return [f(ctx) for f in (about, standards, ai, corrections, sources, contact, tips, advertise, guidelines,
+    return [f(ctx) for f in (about, standards, ai, corrections, contact, tips, advertise, guidelines,
                              privacy, terms, cookies, accessibility)]

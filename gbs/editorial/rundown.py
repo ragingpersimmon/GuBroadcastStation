@@ -56,3 +56,25 @@ def build_rundown(stories: list[Story], size: int = 12, per_desk_cap: int = 3) -
         if len(out) >= size:
             break
     return out
+
+
+def desk_briefs(stories: list[Story], taken: set[str], per_desk: int = 3,
+                skip_slugs: set[str] | None = None) -> list[Segment]:
+    """Web-only stories: the best clusters per desk that didn't make the broadcast,
+    so thin sections (Sports, Science, sub-regions) still fill up. `taken` holds
+    item_hashes already in the rundown; `skip_slugs` are already-published pages."""
+    skip_slugs = skip_slugs or set()
+    per: dict[str, int] = {}
+    out: list[Segment] = []
+    for members in sorted(cluster(stories), key=score, reverse=True):
+        if any(m.item_hash in taken for m in members):
+            continue
+        lead = max(members, key=lambda m: (len(m.summary), m.risk_score))
+        if lead.desk in ("weather", "traffic") or per.get(lead.desk, 0) >= per_desk:
+            continue
+        seg = Segment(story=lead, related=[m for m in members if m is not lead])
+        per[lead.desk] = per.get(lead.desk, 0) + 1
+        if seg.slug in skip_slugs:
+            continue
+        out.append(seg)
+    return out

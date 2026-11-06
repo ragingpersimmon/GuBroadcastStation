@@ -21,7 +21,7 @@ EXPECTED = ["/", "/latest/", "/live/", "/world/", "/world/asia/", "/world/africa
             "/business/markets/", "/business/consumer/", "/tech/", "/science/", "/entertainment/", "/sports/",
             "/local/", "/local/weather/", "/local/traffic/", "/markets/", "/video/", "/shows/", "/shows/evening/",
             "/shows/gucast/", "/people/", "/people/tessa/", "/people/margo/", "/people/coach/", "/archive/", "/search/",
-            "/newsletter/", "/newsletter/thanks/", "/newsletter/confirmed/", "/newsletter/guide/", "/about/", "/about/standards/", "/about/ai/", "/about/corrections/", "/about/sources/",
+            "/newsletter/", "/newsletter/thanks/", "/newsletter/confirmed/", "/newsletter/guide/", "/about/", "/about/standards/", "/about/ai/", "/about/corrections/", "/login/", "/account/", "/membership/", "/membership/thanks/",
             "/contact/", "/tips/", "/advertise/", "/advertise/guidelines/", "/privacy/", "/terms/", "/cookies/",
             "/accessibility/", "/sitemap/", "/404.html", "/feed.xml", "/world/feed.xml", "/sitemap.xml",
             "/news-sitemap.xml", "/robots.txt", "/manifest.webmanifest", "/search-index.json", "/assets/gu.css",
@@ -107,7 +107,8 @@ def test_no_broken_internal_links(site):
 def test_story_page_contents(site):
     cfg, segs = site
     page = next((cfg.site_out / "story").rglob(f"{segs[4].slug}.html")).read_text()
-    assert "https://src.example/4" in page                      # source linked
+    assert "src.example" not in page and "BBC" not in page      # sources stay confidential
+    assert "according to" not in page and 'class="sources"' not in page
     assert "Sponsored message read on air" in page               # sponsor labelled
     assert "AI presenter" in page and "/about/ai/" in page        # disclosure
     assert '"@type": "NewsArticle"' in page
@@ -119,8 +120,9 @@ def test_story_page_contents(site):
 def test_home_and_chrome(site):
     cfg, segs = site
     home = (cfg.site_out / "index.html").read_text()
-    assert "On air" in home and "Gu Evening News" in home and "Tessa Vale" in home
-    assert 'class="breaking"' in home and "Markets <b>Elevated</b>" in home
+    assert "Trending" in home and "data-ticker" in home and "Gu Evening News" in home and "Tessa Vale" in home
+    assert 'class="breaking"' in home and "/membership/" in home and 'href="/login/"' in home
+    assert "/about/sources/" not in home and "outlets credited" not in home
     assert "Good evening. This is Gu." in home
     assert "None" not in re.sub(r"<script.*?</script>", "", home, flags=re.S)
     people = (cfg.site_out / "people" / "coach" / "index.html").read_text()

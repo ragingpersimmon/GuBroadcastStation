@@ -13,7 +13,8 @@ Page map (every link in the nav/footer resolves; tests crawl it):
   /people/ /people/<id>/     on-air cast + newsroom, stories by presenter
   /archive/ /archive/YYYY-MM-DD/
   /search/ (+ /search-index.json)   /newsletter/
-  /about/ /about/standards/ /about/ai/ /about/corrections/ /about/sources/
+  /about/ /about/standards/ /about/ai/ /about/corrections/   (no public sources page: sources are confidential)
+  /login/ /account/ /membership/ /membership/thanks/   (sign-in + Stripe membership; service: gbs/account/server.py)
   /contact/ /tips/ /advertise/ /advertise/guidelines/
   /privacy/ /terms/ /cookies/ /accessibility/ /sitemap/ /404.html
   /feed.xml /sitemap.xml /news-sitemap.xml /robots.txt /manifest.webmanifest /ads.txt
@@ -32,10 +33,11 @@ from urllib.parse import quote, urlparse
 from zoneinfo import ZoneInfo
 
 from gbs.config import Settings
-from gbs.editorial.scriptwriter import outlet_name
+from gbs.editorial.standards import is_sensitive
 from gbs.models import Segment
 from gbs.monetization.ads import AdBook
-from gbs.site import assets, pages
+from gbs.newsdesk import local as localdesk
+from gbs.site import assets, images, pages
 from gbs.site.data import (DESK_NAMES, SECTIONS, PublishedStore, article_url, desk_path,
                            section_of, standfirst)
 
@@ -64,6 +66,13 @@ class Ctx:
         self.written: list[str] = []
         self.articles: list[dict] = []
         self.portraits: dict[str, str] = {}
+        self.localdata = localdesk.snapshot(cfg.data_dir / "local")
+        self.stock: dict[str, list[str]] = {}
+        from gbs.account import server as acct
+        self.providers = [(p, acct.PROVIDERS[p]["label"]) for p in acct.enabled_providers()]
+        self.membership = acct.load_plans()
+        self.billing = acct.billing_on()
+        self.plan_live = {pl["id"]: bool(self.billing and acct.plan_price(pl)) for pl in self.membership["plans"]}
 
     def anchor(self, show=None):
         return self.talent[(show or self.show)["anchor"]]
@@ -121,8 +130,22 @@ def video_tag(a: dict) -> str:
             f'</video></div>')
 
 
+def stock_img(ctx: Ctx, a: dict) -> str | None:
+    if is_sensitive(a["title"], a.get("standfirst") or ""):
+        return None          # no stock scenery on stories about death, war, disasters...
+    return images.pick(ctx.stock, a["desk"], a["slug"])
+
+
+def thumb(ctx: Ctx, a: dict, url: str) -> str:
+    src = stock_img(ctx, a)
+    if not src:
+        return ""
+    return (f'<a class="thumb" href="{url}" tabindex="-1" aria-hidden="true"><img src="{src}" alt="" loading="lazy" '
+            f'width="600" height="338"><span class="ill">Illustrative image</span></a>')
+
+
 def card(ctx: Ctx, a: dict, size: str = "m", deck: bool = False, kicker: bool = True,
-         show_video: bool = False, meta: bool = True) -> str:
+         show_video: bool = False, meta: bool = True, img: bool = False) -> str:
     url = article_url(a)
     k = f'<a class="kicker" href="{desk_path(a["desk"])}">{e(DESK_NAMES.get(a["desk"], a["desk"].title()))}</a>' if kicker else ""
     badge = '<span class="badge-video">Watch</span>' if a.get("video") and not show_video else ""
@@ -130,6 +153,8 @@ def card(ctx: Ctx, a: dict, size: str = "m", deck: bool = False, kicker: bool = 
     m = (f'<p class="meta">{person_link(ctx, a["presenter"])}{time_tag(ctx, a["ts"], rel=True)}</p>'
          if meta else "")
     vid = video_tag(a) if show_video else ""
+    if img and not (show_video and a.get("video")):
+        vid = thumb(ctx, a, url)
     return (f'<article class="card">{vid}{k}<h3 class="hl hl-{size}"><a href="{url}">{badge}{e(a["title"])}</a></h3>'
             f'{d}{m}</article>')
 
@@ -140,17 +165,42 @@ def empty(msg: str) -> str:
 
 # ------------------------------------------------------------------ chrome
 
+def trending(ctx: Ctx, n: int = 8) -> list[dict]:
+    """Rotating top-bar headlines: the current edition in running order (ranked by
+    how widely each event is covered and how urgent it is), then the newest."""
+    pool = [a for a in ctx.articles if a["desk"] not in ("weather", "traffic")]
+    cur = [a for a in pool if a.get("_current")]
+    seen, out = set(), []
+    for a in cur + pool:
+        if a["slug"] not in seen:
+            seen.add(a["slug"])
+            out.append(a)
+        if len(out) >= n:
+            break
+    return out
+
+
+def weather_bit(ctx: Ctx) -> str:
+    w = (ctx.localdata or {}).get("weather")
+    if not w or w.get("temp") is None:
+        return ""
+    return (f'<a class="wx" href="/local/weather/" title="{e(w["place"])} weather">'
+            f'<b>{w["temp"]}&deg;C</b> {e(w["cond"].capitalize())}<span class="wx-place">, {e(w["place"])}</span></a>')
+
+
 def onair_bar(ctx: Ctx) -> str:
-    a = ctx.anchor()
-    pulse = ""
-    if ctx.pulse.get("regime"):
-        pulse = f'<a class="pulse" href="/markets/">Markets <b>{e(str(ctx.pulse["regime"]).capitalize())}</b></a>'
-    return (f'<div class="onair" role="region" aria-label="On air now"><div class="wrap">'
-            f'<a class="tally" href="/live/"><i aria-hidden="true"></i>On air</a>'
-            f'<a class="show" href="/shows/{ctx.show["id"]}/">{e(ctx.show["name"])}</a>'
-            f'<span class="with">with {person_link(ctx, a["name"])}</span>'
-            f'<span class="right">{pulse}<time id="clock" data-tz="{e(str(ctx.tz))}" data-abbr="{e(datetime.now(ctx.tz).strftime("%Z"))}"></time></span>'
-            f'</div></div>')
+    items = trending(ctx)
+    now = datetime.now(ctx.tz)
+    today = now.strftime("%a, %b %d").replace(" 0", " ")
+    lis = "".join(f'<li{"" if i == 0 else " hidden"}><a href="{article_url(a)}">{e(a["title"])}</a></li>'
+                  for i, a in enumerate(items))
+    ticker = (f'<div class="ticker" data-ticker><ul>{lis}</ul></div>'
+              f'<button class="tick-pause" type="button" aria-label="Pause trending headlines" data-pause>&#10073;&#10073;</button>'
+              if items else '<div class="ticker"><span>New stories every 15 minutes</span></div>')
+    return (f'<div class="onair" role="region" aria-label="Trending now"><div class="wrap">'
+            f'<a class="tally" href="/latest/"><i aria-hidden="true"></i>Trending</a>{ticker}'
+            f'<span class="right"><time id="today" data-tz="{e(str(ctx.tz))}" datetime="{now:%Y-%m-%d}">{e(today)}</time>'
+            f'{weather_bit(ctx)}</span></div></div>')
 
 
 def nav(active: str | None) -> str:
@@ -174,7 +224,9 @@ def masthead(ctx: Ctx) -> str:
     return (f'<header class="mast"><div class="wrap">'
             f'<a class="brand" href="/" aria-label="Gu Broadcasting Station home"><span class="gu">Gu</span>'
             f'<span class="full">Broadcasting Station</span></a>'
-            f'<div class="tools"><a class="btn" href="/search/">Search</a>'
+            f'<div class="tools"><a class="btn ghost" href="/search/">Search</a>'
+            f'<a class="btn ghost member-cta" href="/membership/">Become a member</a>'
+            f'<a class="btn" href="/login/" data-account>Sign in</a>'
             f'<a class="btn solid" href="/newsletter/">Get the briefing</a>'
             f'<button class="btn navtoggle" aria-expanded="false" aria-controls="nav">Menu</button></div>'
             f'</div></header>')
@@ -196,9 +248,10 @@ def footer(ctx: Ctx) -> str:
         ("/markets/", "Markets"), ("/local/weather/", "Weather")))
     about = "".join(f'<li><a href="{u}">{n}</a></li>' for u, n in (
         ("/about/", "About Gu"), ("/about/standards/", "Editorial standards"), ("/about/ai/", "How Gu uses AI"),
-        ("/about/corrections/", "Corrections"), ("/about/sources/", "Our sources"), ("/contact/", "Contact"),
+        ("/about/corrections/", "Corrections"), ("/contact/", "Contact"),
         ("/tips/", "Send a tip")))
     biz = "".join(f'<li><a href="{u}">{n}</a></li>' for u, n in (
+        ("/membership/", "Membership"), ("/account/", "Your account"),
         ("/advertise/", "Advertise"), ("/advertise/guidelines/", "Sponsorship guidelines"),
         ("/newsletter/", ctx.site["newsletter"]["name"]), ("/feed.xml", "RSS feeds"), ("/archive/", "Archive"),
         ("/sitemap/", "Site map")))
@@ -211,8 +264,8 @@ def footer(ctx: Ctx) -> str:
             f'<div><h2>About</h2><ul>{about}</ul></div><div><h2>Business</h2><ul>{biz}</ul></div>'
             f'<div><h2>Legal</h2><ul>{legal}</ul></div></div>'
             f'<div class="base"><span class="gu">Gu</span>'
-            f'<span>Every Gu anchor and reporter is an AI-generated character. Stories are original summaries '
-            f'of reporting by the outlets credited on each page.</span>'
+            f'<span>Every Gu anchor and reporter is an AI-generated character. Every story is written in our own '
+            f'words. Images marked "Illustrative" show the topic, not the event.</span>'
             f'<span>{social}</span><span>&copy; {datetime.now().year} {e(ctx.site["operator"])}</span></div>'
             f'</div></footer>')
 
@@ -234,7 +287,8 @@ def shell(ctx: Ctx, path: str, title: str, body: str, desc: str = "", active: st
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(full)}</title><meta name="description" content="{e(desc)}">
 <link rel="canonical" href="{e(url)}"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#1b1f27">
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#f3ece0">
+<script>try{{if(/(^|; )gu_m=1/.test(document.cookie))document.documentElement.className+=" member"}}catch(e){{}}</script>
 <link rel="alternate" type="application/rss+xml" title="{e(ctx.cfg.site_name)}" href="/feed.xml">
 <meta property="og:site_name" content="{e(ctx.cfg.site_name)}"><meta property="og:type" content="{og_type}">
 <meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}">
@@ -263,14 +317,15 @@ def page_home(ctx: Ctx) -> None:
         return
     edition = [a for a in arts if a.get("_current")] or arts[:12]
     lead, rest = edition[0], edition[1:]
-    lead_html = (f'<div>{video_tag(lead)}<div class="lowerthird"><a class="kicker" href="{desk_path(lead["desk"])}">'
+    lead_media = video_tag(lead) or thumb(ctx, lead, article_url(lead)).replace('class="thumb"', 'class="thumb lead-img"')
+    lead_html = (f'<div>{lead_media}<div class="lowerthird"><a class="kicker" href="{desk_path(lead["desk"])}">'
                  f'{e(DESK_NAMES.get(lead["desk"], ""))}</a><h2 class="hl hl-xl"><a href="{article_url(lead)}">'
                  f'{e(lead["title"])}</a></h2>'
                  + (f'<p class="deck">{e(lead["standfirst"])}</p>' if lead.get("standfirst") else "")
                  + f'<p class="meta">{person_link(ctx, lead["presenter"])}{time_tag(ctx, lead["ts"], rel=True)}</p></div>'
                  + (f'<div class="lead-more">{"".join(card(ctx, a, "s", meta=False) for a in rest[4:8])}</div>' if rest[4:] else "")
                  + "</div>")
-    second = '<div class="stack">' + "".join(card(ctx, a, "m", deck=i == 0) for i, a in enumerate(rest[:4])) + "</div>"
+    second = '<div class="stack">' + "".join(card(ctx, a, "m", deck=i == 0, img=i == 0) for i, a in enumerate(rest[:4])) + "</div>"
     latest = ('<aside class="latest" aria-labelledby="latest-h"><h2 id="latest-h">Latest <a href="/latest/">All</a></h2><ol>'
               + "".join(f'<li>{time_tag(ctx, a["ts"], fmt="%I:%M")}<a href="{article_url(a)}">{e(a["title"])}</a></li>'
                         for a in arts[:9]) + "</ol></aside>")
@@ -293,7 +348,7 @@ def page_home(ctx: Ctx) -> None:
             continue
         rails.append(f'<section class="rail" aria-labelledby="r-{s["id"]}"><h2 id="r-{s["id"]}">{e(s["name"])} '
                      f'<a href="{s["path"]}">More {e(s["name"].lower())}</a></h2>'
-                     f'<div class="first">{card(ctx, items[0], "m", deck=True, kicker=False)}</div><ul>'
+                     f'<div class="first">{card(ctx, items[0], "m", deck=True, kicker=False, img=True)}</div><ul>'
                      + "".join(f'<li>{card(ctx, a, "s", kicker=False, meta=False)}</li>' for a in items[1:]) + "</ul></section>")
     body += f'<div class="rails">{"".join(rails)}</div>'
     vids = [a for a in arts if a.get("video")][:4]
@@ -331,7 +386,7 @@ def section_page(ctx: Ctx, path: str, name: str, intro: str, arts: list[dict], a
             f'<a href="{u}"{cur if u == path else ""}>{e(n)}</a>' for u, n in subnav) + "</div>"
     head = f'<header class="page-head"><h1>{e(name)}</h1><p>{e(intro)}</p>{sn}</header>'
     if arts:
-        top = f'<div class="grid grid-3">{"".join(card(ctx, a, "l" if i == 0 else "m", deck=i == 0, kicker=len(subnav or []) > 1, show_video=i == 0) for i, a in enumerate(arts[:3]))}</div>'
+        top = f'<div class="grid grid-3">{"".join(card(ctx, a, "l" if i == 0 else "m", deck=i == 0, kicker=len(subnav or []) > 1, show_video=i == 0, img=True) for i, a in enumerate(arts[:3]))}</div>'
         main = top + ctx.ads.web_slot("inline") + listing(ctx, arts[3:60])
     else:
         main = empty(f"No {name.lower()} stories yet. New stories arrive with every edition, about every 15 minutes.")
@@ -366,6 +421,77 @@ def page_sections(ctx: Ctx) -> None:
         for d, n in s["subs"]:
             section_page(ctx, f"{s['path']}{d}/", n, SUB_INTROS[d], [a for a in ctx.articles if a["desk"] == d],
                          s["id"], sub)
+
+
+# ------------------------------------------------------------------ local: live weather + traffic
+
+def _day(d: str) -> str:
+    return datetime.strptime(d, "%Y-%m-%d").strftime("%a %b %d").replace(" 0", " ")
+
+
+def weather_panel(ctx: Ctx, days: int = 7) -> str:
+    w = (ctx.localdata or {}).get("weather")
+    if not w:
+        return empty("The live forecast is refreshing. Check back in a few minutes.")
+    now = (f'<section class="wx-now"><p class="wx-place">{e(w["place"])}, right now</p>'
+           f'<p class="wx-temp">{w["temp"]}&deg;C</p><p class="wx-cond">{e(w["cond"].capitalize())}</p><ul>'
+           + (f'<li>Feels like {w["feels"]}&deg;</li>' if w.get("feels") is not None else "")
+           + (f'<li>Wind {round(w["wind"])} km/h</li>' if w.get("wind") is not None else "")
+           + (f'<li>Humidity {w["humidity"]}%</li>' if w.get("humidity") is not None else "")
+           + "</ul></section>")
+    rows = "".join(
+        f'<tr><th>{e(_day(d["date"]))}</th><td>{e(d["cond"].capitalize())}</td>'
+        f'<td>{"" if d["hi"] is None else round(d["hi"])}&deg; / {"" if d["lo"] is None else round(d["lo"])}&deg;</td>'
+        f'<td>{"" if d["pop"] is None else str(d["pop"]) + "%"}</td></tr>' for d in w.get("days", [])[:days])
+    table = (f'<table class="wx-days"><caption>{len(w.get("days", [])[:days])}-day forecast</caption><thead><tr><th>Day</th>'
+             f'<th>Conditions</th><th>High / low</th><th>Rain chance</th></tr></thead><tbody>{rows}</tbody></table>') if rows else ""
+    upd = time_tag(ctx, w.get("fetched") or time.time(), fmt="%I:%M %p %Z")
+    return (f'<div class="wx-panel">{now}{table}</div><p class="meta"><span>Updated {upd}. '
+            f'Forecast data: Open-Meteo.com (CC BY 4.0).</span></p>')
+
+
+def traffic_panel(ctx: Ctx, limit: int = 40) -> str:
+    t = (ctx.localdata or {}).get("traffic")
+    if t is None:
+        return empty("Live road conditions are refreshing. Check back in a few minutes.")
+    evs = t.get("events", [])[:limit]
+    name = localdesk.place()[0]
+    if not evs:
+        return empty(f"No active road incidents reported around {name} right now.")
+    rows = "".join(
+        f'<li class="sev-{e(x["severity"])}"><span class="sev">{e(x["severity"].capitalize())}</span><div>'
+        f'<strong>{e(x["road"])}</strong>{" (" + e(x["direction"]) + ")" if x.get("direction") else ""}: {e(x["type"])}'
+        + (f'<p>{e(x["text"])}</p>' if x.get("text") else "") + "</div></li>" for x in evs)
+    upd = time_tag(ctx, t.get("fetched") or time.time(), fmt="%I:%M %p %Z")
+    return (f'<p class="meta"><span>{len(t.get("events", []))} active incidents around {e(name)}, most serious first. '
+            f'Updated {upd}.</span></p><ul class="traffic">{rows}</ul>'
+            '<p class="meta">Road event data: DriveBC, Open Government Licence &ndash; British Columbia.</p>')
+
+
+def page_local(ctx: Ctx) -> None:
+    sec = next(x for x in SECTIONS if x["id"] == "local")
+    sub = [(sec["path"], "All local")] + [(f"{sec['path']}{d}/", n) for d, n in sec["subs"]]
+    name = localdesk.place()[0]
+
+    def page(path, title, intro, top, arts):
+        sn = '<div class="subnav">' + "".join(
+            f'<a href="{u}"{" aria-current=" + chr(34) + "page" + chr(34) if u == path else ""}>{e(n)}</a>' for u, n in sub) + "</div>"
+        body = (f'<header class="page-head"><h1>{e(title)}</h1><p>{e(intro)}</p>{sn}</header>'
+                f'<div class="cols"><div>{top}'
+                + (f'<h2 class="block-title">On air</h2>{listing(ctx, arts[:20])}' if arts else "")
+                + f'</div>{side(ctx)}</div>')
+        write(ctx, path, shell(ctx, path, title, body, desc=intro, active="local"))
+
+    wx = [a for a in ctx.articles if a["desk"] == "weather"]
+    tr = [a for a in ctx.articles if a["desk"] == "traffic"]
+    page("/local/weather/", "Weather", f"The forecast for {name}, with meteorologist Celeste Storm. Updated every 15 minutes.",
+         weather_panel(ctx), wx)
+    page("/local/traffic/", "Traffic", f"Roads and transit around {name}, with Flip Torres. Updated every 10 minutes.",
+         traffic_panel(ctx), tr)
+    both = (f'<h2 class="block-title">Weather <a href="/local/weather/">Full forecast</a></h2>{weather_panel(ctx, 3)}'
+            f'<h2 class="block-title">Traffic <a href="/local/traffic/">All incidents</a></h2>{traffic_panel(ctx, 6)}')
+    page("/local/", "Local", f"{name} weather with Celeste Storm and traffic with Flip Torres.", both,
+         sorted(wx + tr, key=lambda a: -a["ts"]))
 
 
 def page_latest_live(ctx: Ctx) -> None:
@@ -412,11 +538,14 @@ def page_story(ctx: Ctx, a: dict) -> None:
     paras = "".join(f"<p>{e(p)}</p>" for p in a["script"].split("\n") if p.strip())
     sponsor = (f'<aside class="sponsor-box"><span class="lbl">Sponsored message read on air</span>{e(a["sponsor_read"])}</aside>'
                if a.get("sponsor_read") else "")
-    srcs = "".join(f'<li><a href="{e(s["link"])}" rel="noopener nofollow" target="_blank">{e(outlet_name(s["source"]))}</a>: '
-                   f'original reporting</li>' for s in a["sources"])
-    sources = f'<section class="sources" aria-labelledby="src-h"><h2 id="src-h">Sources</h2><ul>{srcs}</ul></section>'
-    note = ('<p class="note">This story is an original summary of reporting by the outlets above, presented by an AI-generated '
-            'character. <a href="/about/ai/">How Gu uses AI</a>. Spotted an error? <a href="/about/corrections/">Request a correction</a>.</p>')
+    note = ('<p class="note">Written in Gu\'s own words and presented by an AI-generated character. '
+            '<a href="/about/ai/">How Gu uses AI</a>. Spotted an error? <a href="/about/corrections/">Request a correction</a>.</p>')
+    hero = ""
+    if not a.get("video"):
+        src = stock_img(ctx, a)
+        if src:
+            hero = (f'<figure class="hero"><img src="{src}" alt="" width="1200" height="675">'
+                    f'<figcaption>Illustrative image: it shows the topic, not this event.</figcaption></figure>')
     full = ctx.cfg.site_url + url
     share = ('<div class="share" aria-label="Share">'
              f'<a href="https://twitter.com/intent/tweet?url={quote(full)}&text={quote(a["title"])}" rel="noopener" target="_blank">Post on X</a>'
@@ -427,19 +556,18 @@ def page_story(ctx: Ctx, a: dict) -> None:
              '<button type="button" data-copy>Copy link</button></div>')
     rel = [x for x in ctx.articles if x["desk"] in sec["desks"] and x["slug"] != a["slug"]][:4]
     related = (f'<section class="related"><h2 class="block-title">More {e(sec["name"].lower())} '
-               f'<a href="{sec["path"]}">All</a></h2><div class="grid">{"".join(card(ctx, x, "s") for x in rel)}</div></section>'
+               f'<a href="{sec["path"]}">All</a></h2><div class="grid">{"".join(card(ctx, x, "s", img=True) for x in rel)}</div></section>'
                if rel else "")
     body = (f'<div class="cols"><article class="article">{crumbs}<h1 class="hl hl-xl">{e(a["title"])}</h1>'
             + (f'<p class="deck">{e(a["standfirst"])}</p>' if a.get("standfirst") else "")
-            + f'{by}{video_tag(a)}<div class="body">{paras}</div>{sponsor}{sources}{note}{share}</article>{side(ctx)}</div>{related}')
+            + f'{by}{video_tag(a)}{hero}<div class="body">{paras}</div>{sponsor}{note}{share}</article>{side(ctx)}</div>{related}')
     ld = {"@context": "https://schema.org", "@type": "NewsArticle", "headline": a["title"][:110],
           "datePublished": t_iso(a["ts"]), "dateModified": t_iso(a["ts"]), "mainEntityOfPage": full,
           "articleSection": DESK_NAMES.get(a["desk"], ""),
           "author": {"@type": "Person", "name": a["presenter"], "url": f"{ctx.cfg.site_url}/people/{pid}/" if pid else ctx.cfg.site_url,
                      "description": "AI-generated presenter"},
           "publisher": {"@type": "NewsMediaOrganization", "name": ctx.cfg.site_name,
-                        "logo": {"@type": "ImageObject", "url": ctx.cfg.site_url + "/assets/favicon.svg"}},
-          "isBasedOn": [s["link"] for s in a["sources"]]}
+                        "logo": {"@type": "ImageObject", "url": ctx.cfg.site_url + "/assets/favicon.svg"}}}
     if a.get("video"):
         ld["video"] = {"@type": "VideoObject", "name": a["title"], "contentUrl": ctx.cfg.site_url + a["video"],
                        "uploadDate": t_iso(a["ts"]), "description": a.get("standfirst") or a["title"],
@@ -452,8 +580,19 @@ def page_video(ctx: Ctx) -> None:
     vids = [a for a in ctx.articles if a.get("video")]
     head = ('<header class="page-head"><h1>Video</h1><p>Every story our AI anchors and reporters have read on air. '
             'New clips arrive through the day as the studio renders them.</p></header>')
-    body = head + (f'<div class="grid grid-3">{"".join(card(ctx, a, "m", show_video=True) for a in vids[:60])}</div>'
-                   if vids else empty("No video yet. Clips are added to stories as soon as the studio renders them."))
+    if vids:
+        body = head + f'<div class="grid grid-3">{"".join(card(ctx, a, "m", show_video=True) for a in vids[:60])}</div>'
+    else:
+        onair = [a for a in ctx.articles if a.get("_current")][:9] or ctx.articles[:9]
+        cast = [t for t in ctx.nr["talent"] if t["kind"] in ("anchor", "ai_anchor")][:6]
+        body = (head + '<p class="empty">The anchor studio is coming online. Until the first clips arrive, here is what our '
+                'anchors are reading on air right now; every script is printed on its story page.</p>'
+                f'<h2 class="block-title">On air now <a href="/live/">Full edition</a></h2>'
+                f'<div class="grid grid-3">{"".join(card(ctx, a, "m", img=True) for a in onair)}</div>'
+                '<h2 class="block-title">Your anchors <a href="/people/">Everyone</a></h2><div class="people">'
+                + "".join(f'<div class="person">{portrait(ctx, t["id"])}<div><a href="/people/{t["id"]}/"><strong>'
+                          f'{e(t["name"])}</strong></a><div class="t">{e(t["title"])}</div></div></div>' for t in cast)
+                + '</div>')
     write(ctx, "/video/", shell(ctx, "/video/", "Video", body, active="video"))
 
 
@@ -546,8 +685,8 @@ def page_people(ctx: Ctx) -> None:
                 facts.append("Covers " + ", ".join(f'<a href="{desk_path(d)}">{e(DESK_NAMES.get(d, d))}</a>' for d in t["desks"]))
             if t["id"] == ctx.nr["breaking"]["anchor"]:
                 facts.append("Reads every breaking-news update")
-            kind_note = ("An AI-generated on-air character. The face and voice are synthetic; the reporting comes from "
-                         "the outlets credited on each story." if on_air else
+            kind_note = ("An AI-generated on-air character. The face and voice are synthetic; every script is written "
+                         "under Gu's editorial standards." if on_air else
                          "A role in Gu's AI newsroom: this character stands for the editorial rules the system follows.")
             body = (f'<div class="profile">{portrait(ctx, t["id"], "lg")}<div><h1 class="hl hl-xl">{e(t["name"])}</h1>'
                     f'<p class="deck">{e(t["title"])}</p></div></div><div class="cols"><div class="prose">'
@@ -618,7 +757,7 @@ def page_newsletter(ctx: Ctx) -> None:
         f'{e(i["subject"])}</li>' for i in issues[:30]) + "</ul>") if issues else ""
     body = (f'<header class="page-head"><h1>{e(n["name"])}</h1><p>{e(n["blurb"])}</p></header><div class="cols"><div class="prose">'
             f'{status}{signup_form(ctx)}'
-            '<h2>What you get</h2><ul><li>The three stories that matter most, each in two lines, with its sources.</li>'
+            '<h2>What you get</h2><ul><li>The three stories that matter most, each in two lines.</li>'
             '<li>One or two headlines from every desk: world, politics, business, tech and science, culture and sports.</li>'
             '<li>The market pulse and the local forecast.</li>'
             f'<li>One labelled sponsor message at most. {e(n.get("cadence", ""))}, about a three-minute read.</li></ul>'
@@ -641,26 +780,25 @@ def page_newsletter(ctx: Ctx) -> None:
     write(ctx, "/newsletter/confirmed/", shell(ctx, "/newsletter/confirmed/", "You're subscribed", (
         f'<header class="page-head"><h1>You\'re subscribed</h1><p>Welcome to {e(n["name"])}.</p></header><div class="prose">'
         f'<p>Your first issue arrives at the next send: {e(n.get("cadence", "weekday mornings"))}. Each one has the top '
-        'stories, a headline or two from every desk, and links to every source, about three minutes of reading.</p>'
-        '<h2>Your free guide</h2><p><a href="/newsletter/guide/">How to read a news story in 60 seconds</a>: the five checks '
-        'we run on every story before Gu reports it.</p>'
+        'stories and a headline or two from every desk, about three minutes of reading.</p>'
+        '<h2>Your free guide</h2><p><a href="/newsletter/guide/">How to read a news story in 60 seconds</a>: five checks '
+        'that work on any story.</p>'
         '<h2>One question</h2><p>Which part of the world, or which topic, do you think gets too little coverage? Reply to any '
-        f'issue, or email {_mail_link(ctx.emails["tips"])}. We read every reply, and it shapes which sources we add.</p>'
+        f'issue, or email {_mail_link(ctx.emails["tips"])}. We read every reply, and it shapes what we cover.</p>'
         '<p>Meanwhile: <a href="/live/">watch the latest edition</a> or <a href="/people/">meet the anchors</a>.</p></div>')))
 
     write(ctx, "/newsletter/guide/", shell(ctx, "/newsletter/guide/", "How to read a news story in 60 seconds", (
-        '<header class="page-head"><h1>How to read a news story in 60 seconds</h1><p>Five checks we run before Gu reports '
-        'anything. They work on any story, from anyone, including us.</p></header><div class="prose"><ol>'
-        '<li><strong>Who reported it first?</strong> Look for the original outlet, not the account sharing it. On Gu, '
-        'that\'s the Sources box under every story.</li>'
-        '<li><strong>How many outlets have it?</strong> One outlet is a lead. Several independent outlets is a story. '
-        'Gu ranks stories higher when more outlets cover them.</li>'
+        '<header class="page-head"><h1>How to read a news story in 60 seconds</h1><p>Five checks that work on any '
+        'story, from anyone, including us.</p></header><div class="prose"><ol>'
+        '<li><strong>Who reported it first?</strong> Look for the original report, not the account sharing it.</li>'
+        '<li><strong>How many independent reports are there?</strong> One report is a lead. Several independent reports '
+        'make a story. Gu ranks stories higher when they are widely reported.</li>'
         '<li><strong>What\'s fact and what\'s claim?</strong> "Officials said" and "according to" mark claims, not '
         'confirmed facts. Notice who is speaking.</li>'
         '<li><strong>How old is it?</strong> Check the timestamp. Old stories travel fast when something new happens.</li>'
         '<li><strong>Does the headline match the story?</strong> Read past the first line before you share. If the '
         'details are thinner than the headline, wait.</li></ol>'
-        '<p>Gu is presented by AI characters and summarizes other outlets\' reporting, so these checks apply to us too. '
+        '<p>Gu is presented by AI characters and condenses published reporting, so these checks apply to us too. '
         'If a Gu story fails one, <a href="/about/corrections/">tell us</a>.</p>'
         f'{signup_form(ctx, "em2") if not ctx.site.get("_hide_guide_form") else ""}</div>'),
         desc="Five checks to run on any news story before you believe it or share it."))
@@ -684,6 +822,68 @@ def rebuild_newsletter_pages(cfg: Settings) -> None:
     ctx = Ctx(cfg, None, {}, {})
     ctx.articles = PublishedStore(cfg.data_dir / "published.db").recent(ctx.site["archive_days"])
     page_newsletter(ctx)
+
+
+# ------------------------------------------------------------------ account + membership
+
+def page_account(ctx: Ctx) -> None:
+    btns = "".join(f'<a class="btn provider p-{p}" href="/auth/{p}/start?next=/account/" data-next>'
+                   f'Continue with {e(label)}</a>' for p, label in ctx.providers)
+    login = ('<header class="page-head"><h1>Sign in to Gu</h1><p>One click with an account you already have. '
+             'Reading Gu is free and never needs an account; sign in to become a member.</p></header>'
+             '<div class="cols"><div class="prose"><p id="auth-msg" class="note" hidden></p>'
+             + (f'<div class="providers">{btns}</div>' if btns else
+                '<p class="empty">Sign-in is opening soon. Everything on Gu is free to read in the meantime.</p>')
+             + '<h2>What we get from your sign-in</h2><p>Your name, email address and an account ID from the provider you '
+             'choose. We never see your password and never post anything. See the <a href="/privacy/">privacy policy</a>.</p>'
+             f'<p>New here? <a href="/membership/">See membership</a>.</p></div>{side(ctx)}</div>')
+    write(ctx, "/login/", shell(ctx, "/login/", "Sign in", login, desc="Sign in to Gu Broadcasting Station."))
+
+    acct = ('<header class="page-head"><h1>Your account</h1></header><div class="cols"><div class="prose" id="account" '
+            'data-account-page><p class="empty" data-when="out">You\'re not signed in. <a href="/login/">Sign in</a> to see '
+            'your membership.</p><div data-when="in" hidden><p><strong data-f="name"></strong><br><span data-f="email"></span>'
+            '<br><span class="meta">Signed in with <span data-f="provider"></span></span></p>'
+            '<h2>Membership</h2><p data-f="plan"></p>'
+            '<p data-when="free" hidden><a class="btn solid" href="/membership/">Become a member</a></p>'
+            '<form data-when="portal" hidden method="post" action="/billing/portal"><button class="btn" type="submit">'
+            'Manage billing, receipts or cancel</button></form>'
+            '<h2>Sign out</h2><form method="post" action="/auth/logout"><button class="btn" type="submit">Sign out</button></form>'
+            '</div><noscript><p class="empty">Your account page needs JavaScript.</p></noscript></div>'
+            f'{side(ctx)}</div>')
+    write(ctx, "/account/", shell(ctx, "/account/", "Your account", acct), sitemap=False)
+
+    m = ctx.membership
+    free = m["free"]
+    cols = [f'<article class="plan"><h2>{e(free["name"])}</h2><p class="price">Free</p><ul>'
+            + "".join(f"<li>{e(x)}</li>" for x in free["perks"]) + '</ul><a class="btn" href="/login/">Sign in</a></article>']
+    for pl in m["plans"]:
+        live = ctx.plan_live.get(pl["id"])
+        badge = f'<span class="plan-badge">{e(pl["badge"])}</span>' if pl.get("badge") else ""
+        action = (f'<form method="post" action="/billing/checkout"><input type="hidden" name="plan" value="{e(pl["id"])}">'
+                  f'<button class="btn solid" type="submit">Join: {e(pl["price"])}</button></form>' if live else
+                  '<button class="btn" type="button" disabled>Opening soon</button>')
+        cols.append(f'<article class="plan{" featured" if pl["id"] == "yearly" else ""}">{badge}<h2>{e(pl["name"])}</h2>'
+                    f'<p class="price">{e(pl["price"])} <span>{e(pl["interval"])}</span></p><ul>'
+                    + "".join(f"<li>{e(x)}</li>" for x in pl["perks"]) + f"</ul>{action}</article>")
+    faq = ('<div class="prose"><h2>Questions</h2>'
+           '<h3>Do I need to be a member to read Gu?</h3><p>No. Every story and clip is free. Membership funds the newsroom '
+           'and takes the ads away.</p>'
+           '<h3>How do I pay?</h3><p>Securely through Stripe. Gu never sees or stores your card number.</p>'
+           '<h3>Can I cancel?</h3><p>Yes, any time, from <a href="/account/">your account</a>. Monthly and yearly '
+           'memberships run to the end of the period you paid for and then stop.</p>'
+           '<h3>Refunds?</h3><p>Email ' + _mail_link(ctx.emails["general"]) + ' within 14 days of a charge and we\'ll refund '
+           'it. The Founding Member payment is refundable within 14 days too.</p>'
+           '<p class="meta">Prices in Canadian dollars. Taxes may apply. See the <a href="/terms/">terms of use</a>.</p></div>')
+    body = ('<header class="page-head"><h1>Membership</h1><p>Gu is free to read. Members keep an always-on AI newsroom running '
+            'and get Gu without ads.</p></header><p id="auth-msg" class="note" hidden></p>'
+            f'<div class="plans">{"".join(cols)}</div>{faq}')
+    write(ctx, "/membership/", shell(ctx, "/membership/", "Membership", body,
+                                      desc="Support Gu Broadcasting Station and read without ads."))
+    write(ctx, "/membership/thanks/", shell(ctx, "/membership/thanks/", "Welcome, member", (
+        '<header class="page-head"><h1>Welcome, member</h1><p>Thank you for supporting Gu.</p></header><div class="prose">'
+        '<p>Your payment went through. Your membership switches on within a minute; <a href="/account/">your account</a> '
+        'shows it once it does. A receipt is on its way to your email from Stripe.</p>'
+        '<p>Meanwhile: <a href="/live/">watch the latest edition</a>.</p></div>')), sitemap=False)
 
 
 # ------------------------------------------------------------------ prose + machine files
@@ -743,7 +943,7 @@ def machine_files(ctx: Ctx) -> None:
     write(ctx, "/robots.txt", f"User-agent: *\nAllow: /\nDisallow: /rundown.json\nDisallow: /social/\n"
           f"Sitemap: {base}/sitemap.xml\nSitemap: {base}/news-sitemap.xml\n", sitemap=False)
     write(ctx, "/manifest.webmanifest", json.dumps({"name": ctx.cfg.site_name, "short_name": "Gu", "start_url": "/",
-          "display": "standalone", "background_color": "#ffffff", "theme_color": "#1b1f27",
+          "display": "standalone", "background_color": "#f3ece0", "theme_color": "#f3ece0",
           "icons": [{"src": "/assets/favicon.svg", "sizes": "any", "type": "image/svg+xml"}]}), sitemap=False)
     if ctx.ads.ads_txt():
         write(ctx, "/ads.txt", ctx.ads.ads_txt() + "\n", sitemap=False)
@@ -767,7 +967,7 @@ def _rows_from_rundown(ctx: Ctx, rundown: list[Segment], videos: dict, now: floa
 
 def build_site(cfg: Settings, rundown: list[Segment], pulse: dict | None = None,
                videos: dict | None = None, show: dict | None = None,
-               bookends: dict | None = None) -> Path:
+               bookends: dict | None = None, extra: list[Segment] | None = None) -> Path:
     ctx = Ctx(cfg, show, pulse, bookends)
     out = ctx.out
     out.mkdir(parents=True, exist_ok=True)
@@ -778,7 +978,13 @@ def build_site(cfg: Settings, rundown: list[Segment], pulse: dict | None = None,
             videos.setdefault(f.stem, f"/v/{f.name}")
 
     store = PublishedStore(cfg.data_dir / "published.db")
-    store.upsert(_rows_from_rundown(ctx, rundown, videos, time.time()))
+    now = time.time()
+    store.upsert(_rows_from_rundown(ctx, rundown, videos, now))
+    if extra:  # web-only desk briefs: published, never on air
+        rows = _rows_from_rundown(ctx, extra, videos, now - len(rundown))
+        for r in rows:
+            r["show_id"] = None
+        store.upsert(rows)
     current = {s.slug for s in rundown}
     ctx.articles = store.recent(ctx.site["archive_days"])
     for a in ctx.articles:
@@ -798,8 +1004,11 @@ def build_site(cfg: Settings, rundown: list[Segment], pulse: dict | None = None,
             shutil.copy(src, dest)
             ctx.portraits[tid] = f"/img/people/{tid}.png"
 
+    ctx.stock = images.publish(images.load_pool(cfg.data_dir), cfg.data_dir, out)
+
     page_home(ctx)
     page_sections(ctx)
+    page_local(ctx)
     page_latest_live(ctx)
     for a in ctx.articles:
         page_story(ctx, a)
@@ -810,6 +1019,7 @@ def build_site(cfg: Settings, rundown: list[Segment], pulse: dict | None = None,
     page_archive(ctx)
     page_search(ctx)
     page_newsletter(ctx)
+    page_account(ctx)
     page_prose(ctx)
     page_sitemap_html(ctx)
     machine_files(ctx)

@@ -42,10 +42,23 @@ WORLD_FEEDS = {
     "entertainment:guardian_culture": "https://www.theguardian.com/culture/rss",
     "sports:bbc_sport": "https://feeds.bbci.co.uk/sport/rss.xml",
     "sports:globalnews_sports": "https://globalnews.ca/sports/feed/",
+    # Added 2026-11-06 to fill thin desks (Americas, Markets, Consumer, Science, Sports, Tech)
+    "americas:bbc_us_canada": "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml",
+    "americas:bbc_latam": "https://feeds.bbci.co.uk/news/world/latin_america/rss.xml",
+    "americas:guardian_us": "https://www.theguardian.com/us-news/rss",
+    "markets:cnbc_markets": "https://www.cnbc.com/id/20910258/device/rss/rss.html",
+    "markets:marketwatch": "https://feeds.content.dowjones.io/public/rss/mw_marketpulse",
+    "consumer:guardian_consumer": "https://www.theguardian.com/money/consumer-affairs/rss",
+    "science:guardian_science": "https://www.theguardian.com/science/rss",
+    "science:sciencedaily": "https://www.sciencedaily.com/rss/top/science.xml",
+    "sports:guardian_sport": "https://www.theguardian.com/sport/rss",
+    "sports:espn": "https://www.espn.com/espn/rss/news",
+    "tech:verge": "https://www.theverge.com/rss/index.xml",
+    "entertainment:npr_arts": "https://feeds.npr.org/1008/rss.xml",
 }
 
 DESKS = ["world", "americas", "europe", "asia", "mideast", "africa", "politics", "business",
-         "consumer", "tech", "science", "entertainment", "sports", "weather", "traffic"]
+         "markets", "consumer", "tech", "science", "entertainment", "sports", "weather", "traffic"]
 
 
 def desk_of(source_key: str) -> str:
