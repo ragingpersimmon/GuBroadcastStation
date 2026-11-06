@@ -3,12 +3,15 @@ pipeline runs end-to-end on a laptop with nothing but feedparser."""
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 
 def _env(name: str, default: str = "") -> str:
-    return os.getenv(name, default).strip()
+    """Env value, with any inline ' # comment' removed (systemd's EnvironmentFile keeps them)."""
+    v = os.getenv(name, default)
+    return re.split(r"\s+#", v, maxsplit=1)[0].strip()
 
 
 @dataclass

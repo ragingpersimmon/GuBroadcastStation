@@ -13,6 +13,7 @@ AI-anchored news site. Pipeline: `gbs ingest` (world feeds through 5protocol's `
 - Editorial standards in `gbs/editorial/standards.py` are non-negotiable: rewrite in your own words, credit and link sources, no invented facts, no humour on serious stories, sponsor reads always labelled, every on-air character disclosed as AI.
 - Only use TTS/video models with commercial-use licences (no XTTS-v2).
 - Clone only invented voices or Ric's own.
+- Never `git add -A` / `commit -a` in a checkout where `vendor/5protocol` is not checked out: it stages removal of the submodule pin (`tests/test_repo.py` guards this). Stage files by name.
 - Run `FIVEPROTOCOL_PATH=<5protocol checkout> pytest -q` before committing. Add tests for new behaviour.
 - Site: every page lives in `gbs/site/build.py` (page map in its docstring) or `gbs/site/pages.py`. Run `tests/test_site.py` after changes; it crawls every link. Keep f-strings Python 3.11-safe (no same-type quotes inside `{}`).
 - Ric's style: terse, direct, actionable.
