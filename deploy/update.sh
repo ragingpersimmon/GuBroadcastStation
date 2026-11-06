@@ -20,7 +20,7 @@ chown -R gbs: "$APP"
 chmod 600 .env
 cp deploy/gubroadcast-*.service deploy/gubroadcast-*.timer /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable -q --now gubroadcast-account.service
+systemctl enable -q --now gubroadcast-account.service gubroadcast-images.timer
 systemctl restart gubroadcast-account.service
 cp deploy/nginx_gubroadcast.conf /etc/nginx/sites-available/gubroadcast
 nginx -t -q && systemctl reload nginx
