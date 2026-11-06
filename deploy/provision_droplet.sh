@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # One-time droplet setup for gubs.ca. Run as root on a fresh Ubuntu 24.04 droplet.
 #
-#   GH_TOKEN=github_pat_... CERT_EMAIL=you@example.com bash provision_droplet.sh
+# Easiest: log in with the GitHub CLI and clone as root, then run this script:
+#   apt-get install -y gh && gh auth login -w -p https && gh auth setup-git
+#   git clone --recurse-submodules https://github.com/ragingpersimmon/GuBroadcastStation.git /opt/gubroadcast
+#   CERT_EMAIL=you@example.com bash /opt/gubroadcast/deploy/provision_droplet.sh
 #
-# GH_TOKEN: a fine-grained GitHub token, read-only "Contents" on ragingpersimmon/GuBroadcastStation
+# Or let the script clone as the gbs user with GH_TOKEN, a fine-grained GitHub token, read-only "Contents" on ragingpersimmon/GuBroadcastStation
 # and ragingpersimmon/5protocol (both private). It is stored in /etc/gitconfig (root:gbs, 0640) so the
 # gbs user can clone and pull both repos and the submodule. Re-running the script is safe.
 # The droplet should also be on the tailnet (tailscale up) so the market pulse can reach nebulizer:8699.
@@ -34,8 +37,9 @@ if [ ! -d "$APP/.git" ]; then
   fi
   sudo -u gbs git clone --recurse-submodules "$REPO" "$APP"
 fi
+chown -R gbs: "$APP"   # also covers a checkout cloned as root
 cd "$APP"
-sudo -u gbs git pull --ff-only || true
+sudo -u gbs git pull --ff-only 2>/dev/null || true
 sudo -u gbs git submodule update --init
 [ -x .venv/bin/python ] || sudo -u gbs python3 -m venv .venv
 sudo -u gbs .venv/bin/pip install -q -r requirements.txt
