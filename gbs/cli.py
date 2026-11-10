@@ -122,7 +122,7 @@ def cmd_rundown(cfg) -> int:
     from gbs.site.data import PublishedStore
     per = int(os.getenv("GBS_SITE_EXTRA_PER_DESK", "2"))
     # the local 27B writes every story (up to 3 drafts each); keep an edition inside its 15 minutes
-    budget = int(os.getenv("GBS_MAX_REWRITES", "24")) - len(rundown) - len(held)
+    budget = int(os.getenv("GBS_MAX_REWRITES", "8")) - len(rundown) - len(held)
     briefs = []
     if per > 0:
         known = PublishedStore(cfg.data_dir / "published.db").keys()
