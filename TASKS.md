@@ -111,6 +111,7 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
   - trafilatura full-text cross-check: internal, robots.txt respected; `GBS_FULLTEXT=1`.
 - [ ] **T57 [ric]** Optional: Google Fact Check API key (console.cloud.google.com → APIs → Fact Check Tools API → Credentials → API key) into `.env` as `GOOGLE_FACTCHECK_API_KEY`.
 - [x] **T58 [agent]** AionUi enablement: `scripts/gu.ps1` (droplet tasks over SSH from kwon9000) and `docs/AIONUI.md` (27B model setup, "Gu ops" assistant instructions, scheduled checks).
+- [ ] **T60 [ric]** Approve REQ "expose 27B to tailnet" in #garden-overseer (`tailscale serve --bg --tcp 18080 tcp://127.0.0.1:8080` on kwon9000). Ollama there has only qwen2.5-coder:7b; the 27B is llama-server on 127.0.0.1:8080. update.sh now prefers :18080 and swaps an earlier Ollama pick. `GBS_MAX_REWRITES` default 24 → 8 (shared 2-slot 27B); lower it in `.env` too if it was copied as 24.
 - [ ] **T59 [ric]** AionUi setup per docs/AIONUI.md §1 (model URL, clone, `gu.ps1 ssh-test`, paste the instructions).
 
 ## 6. Housekeeping

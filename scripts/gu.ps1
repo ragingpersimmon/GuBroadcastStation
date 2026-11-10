@@ -35,7 +35,7 @@ switch ($Task) {
     "reply"     { if (-not $Ref) { throw "usage: gu.ps1 reply GU-YYMMDD-XXXX [-Status booked]" }
                   Remote "$Env && sudo -u gbs -E .venv/bin/python -m gbs inquiries $Ref $Status" }
     "logs"      { Remote "journalctl -u gubroadcast-pipeline -n 60 --no-pager -o cat" }
-    "llm-check" { Remote "curl -s -m 8 http://100.111.143.71:11434/v1/models | head -c 400; echo" }
+    "llm-check" { Remote "curl -s -m 8 http://100.111.143.71:18080/v1/models | head -c 400; echo" }
     "harden"    { Write-Host "This changes firewall and SSH settings on the droplet."
                   $ok = Read-Host "Type HARDEN to continue"
                   if ($ok -eq "HARDEN") { Remote "sudo bash $App/deploy/harden.sh" } }

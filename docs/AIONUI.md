@@ -63,4 +63,4 @@ You need this only for jobs that have no script, like clicking through an app. G
 
 - The 27B is good at running these scripts and summarising their output. Code changes to the newsroom (the
   verification engine, site builder, security config) still go through a reviewed pull request with tests.
-- Keep kwon9000 awake and Ollama running: it is also the newsroom's only writer and translator.
+- Keep kwon9000 awake: its 27B (llama-server, shared with the Glass checkers over `tailscale serve` :18080) is the newsroom's only writer and translator. `GBS_MAX_REWRITES=8` keeps the newsroom from hogging its 2 slots.

@@ -18,9 +18,13 @@ while IFS= read -r line; do
   [[ $line =~ ^[A-Z_]+= ]] && ! grep -q "^$k=" .env && echo "$line" >> .env
 done < .env.example
 # rewriter: if LLM_BASE_URL is empty, use the first OpenAI-compatible server that answers on the tailnet
-# (Ric's kwon9000 Ollama first). Nothing new publishes without it.
+# (Ric's kwon9000 27B via `tailscale serve` on :18080 first, then Ollama). Nothing new publishes without it.
+# An earlier auto-pick of kwon9000 Ollama (7B only) is upgraded to the 27B once :18080 answers.
+if grep -q '^LLM_BASE_URL=http://100.111.143.71:11434/v1$' .env && curl -s -m 5 http://100.111.143.71:18080/v1/models | grep -q '"data"'; then
+  sed -i '/^LLM_BASE_URL=/d;/^LLM_MODEL=/d' .env
+fi
 if ! grep -q '^LLM_BASE_URL=.\+' .env; then
-  for u in ${GBS_LLM_CANDIDATES:-http://100.111.143.71:11434/v1 http://kwon9000:11434/v1 http://kwon9000:8080/v1}; do
+  for u in ${GBS_LLM_CANDIDATES:-http://100.111.143.71:18080/v1 http://100.111.143.71:11434/v1 http://kwon9000:11434/v1 http://kwon9000:8080/v1}; do
     if curl -s -m 5 "$u/models" | grep -q '"data"'; then
       sed -i '/^LLM_BASE_URL=/d;/^LLM_MODEL=/d' .env
       printf 'LLM_BASE_URL=%s\nLLM_MODEL=auto\n' "$u" >> .env
