@@ -105,10 +105,13 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
   3. After adding your SSH key: `sudo bash /opt/gubroadcast/deploy/harden.sh`.
 - [ ] **T54 [ric]** Keep kwon9000 Ollama running; the 27B is the only writer. When it's off, nothing new publishes.
 - [ ] **T55 [agent]** (after T53) Tune: watch `gbs doctor` held reasons for a day; adjust ORIG_RUN, loaded-word list, cluster thresholds.
-- [ ] **T56 [agent]** Optional corroboration extras:
-  - GDELT DOC 2.0 (free, no key) as an extra independent-coverage signal.
-  - Google Fact Check Tools claim search (free with API key) to flag debunked claims.
-  - trafilatura for full-text cross-checks (internal only).
+- [x] **T56 [agent]** External checks (`gbs/verify/external.py`):
+  - GDELT wider coverage: panel line; never confirms on its own; max 10 per edition.
+  - Google Fact Check flags: a match holds the story; needs `GOOGLE_FACTCHECK_API_KEY`.
+  - trafilatura full-text cross-check: internal, robots.txt respected; `GBS_FULLTEXT=1`.
+- [ ] **T57 [ric]** Optional: Google Fact Check API key (console.cloud.google.com → APIs → Fact Check Tools API → Credentials → API key) into `.env` as `GOOGLE_FACTCHECK_API_KEY`.
+- [x] **T58 [agent]** AionUi enablement: `scripts/gu.ps1` (droplet tasks over SSH from kwon9000) and `docs/AIONUI.md` (27B model setup, "Gu ops" assistant instructions, scheduled checks).
+- [ ] **T59 [ric]** AionUi setup per docs/AIONUI.md §1 (model URL, clone, `gu.ps1 ssh-test`, paste the instructions).
 
 ## 6. Housekeeping
 

@@ -84,3 +84,40 @@ def test_doctor_runs_and_flags_missing_rewriter(tmp_path, capsys):
     assert registry_gaps() == []                 # every configured feed's outlet is in the registry
     assert doctor(cfg) == 1
     assert "rewriter: DOWN" in capsys.readouterr().out
+
+
+def test_gdelt_and_factcheck_signals(tmp_path, monkeypatch):
+    from gbs.verify import external
+    monkeypatch.setenv("GBS_LIVE_DATA", "1")
+    monkeypatch.setattr(external.time, "sleep", lambda s: None)
+    arts = {"articles": [{"domain": f"d{i % 7}.example", "sourcecountry": ["CA", "FR", "JP"][i % 3],
+                          "language": "English"} for i in range(20)]}
+    calls = []
+    w = external.gdelt_coverage(tmp_path, ["lecornu", "macron"], http=lambda u: calls.append(u) or arts)
+    assert w == {"articles": 20, "domains": 7, "countries": 3, "languages": 1}
+    assert external.gdelt_coverage(tmp_path, ["macron", "lecornu"], http=lambda u: 1 / 0) == w   # cached
+    assert len(calls) == 1 and "timespan=48h" in calls[0]
+    assert external.factcheck_flags(tmp_path, ["vaccine", "microchips"], "x") == []          # no key: off
+    monkeypatch.setenv("GOOGLE_FACTCHECK_API_KEY", "k")
+    claims = {"claims": [{"text": "Vaccines contain microchips for tracking",
+                          "claimReview": [{"textualRating": "False", "publisher": {"name": "FC"}, "url": "u"}]}]}
+    flags = external.factcheck_flags(tmp_path, ["vaccine", "microchips"], "Vaccines contain tracking microchips",
+                                     http=lambda u: claims)
+    assert flags and flags[0]["rating"] == "False"
+    assert not external.factcheck_flags(tmp_path / "x", ["budget", "council"], "Council passes budget",
+                                        http=lambda u: claims)                       # unrelated claim
+
+
+def test_fact_checked_false_claim_holds_the_story(tmp_path, monkeypatch):
+    from gbs.config import Settings
+    from gbs.editorial import scriptwriter as sw
+    from gbs.models import Segment
+    from gbs.verify import external
+    monkeypatch.setattr(external, "factcheck_flags", lambda *a, **k: [{"claim": "c", "rating": "False"}])
+    monkeypatch.setattr(external, "gdelt_coverage", lambda *a, **k: None)
+    cfg = Settings()
+    cfg.llm_base_url, cfg.data_dir = "http://fake.llm/v1", tmp_path
+    seg = Segment(story=st("world:bbc", "Quake hits Chile coast", h="a"),
+                  related=[st("world:guardian", "Chile coast struck by quake", h="b")])
+    assert not sw.write_story(cfg, seg, {"name": "Lena Moravec", "title": "Correspondent", "style": "Calm.", "sample": "x"})
+    assert seg.verify["problems"] == ["matches a claim fact-checkers rated false"] and not seg.headline

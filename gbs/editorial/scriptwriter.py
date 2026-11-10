@@ -140,9 +140,9 @@ def template_script(seg: Segment, talent: dict | None = None) -> str:
     return f"{seg.story.title.strip().rstrip('.')}."
 
 
-def _facts_brief(seg: Segment) -> str:
+def _facts_brief(seg: Segment, members: list | None = None) -> str:
     from gbs.verify.checker import cross_check
-    f = cross_check(seg.members)
+    f = cross_check(members or seg.members)
     lines = []
     if f["confirmed_numbers"]:
         lines.append("Figures confirmed by 2+ independent reports (you may use these): " + ", ".join(f["confirmed_numbers"]))
@@ -163,7 +163,9 @@ def write_story(cfg: Settings, seg: Segment, talent: dict, attempts: int = 3) ->
     """Gu's own headline + spoken read, gated by the verification engine.
     Sets seg.headline / seg.script / seg.verify. Returns True when publishable.
     No LLM, or a draft that keeps failing the checks -> not published (nothing is copied)."""
-    from gbs.verify.checker import corroborate, verify
+    from dataclasses import replace
+    from gbs.verify import external
+    from gbs.verify.checker import corroborate, cross_check, verify
     c = corroborate(seg.members)
     seg.headline, seg.script = "", ""
     if not c["confirmed"]:
@@ -182,7 +184,10 @@ def write_story(cfg: Settings, seg: Segment, talent: dict, attempts: int = 3) ->
               "marks; attribute every claim to who made it.\n"
               "Output exactly two lines:\nHEADLINE: <8-14 word factual headline, sentence case>\n"
               "READ: <spoken news read, 60-110 words>")
-    user = f"Desk: {seg.story.desk}\nMaterial:\n{_material(seg)}\n{_facts_brief(seg)}"
+    # internal only: full article text (GBS_FULLTEXT=1) widens the fact and copy checks; the writer never sees it
+    checked = [replace(m, summary=f"{m.summary} {external.fulltext(cfg.data_dir, m.link)[:6000]}".strip())
+               for m in seg.members]
+    user = f"Desk: {seg.story.desk}\nMaterial:\n{_material(seg)}\n{_facts_brief(seg, checked)}"
     feedback = ""
     for _ in range(attempts):
         try:
@@ -193,9 +198,19 @@ def write_story(cfg: Settings, seg: Segment, talent: dict, attempts: int = 3) ->
             return False
         head, body = _parse_story(raw)
         head, body = scrub_outlets(head), scrub_outlets(body)
-        v = verify(head, body, seg.members)
+        v = verify(head, body, checked)
         seg.verify = v
         if v["publish"]:
+            terms = external.query_terms(cross_check(seg.members)["confirmed_names"], head)
+            flags = external.factcheck_flags(cfg.data_dir, terms, head)
+            if flags:   # fact-checkers recently rated a matching claim false: a human decides
+                v["publish"] = False
+                v["problems"] = ["matches a claim fact-checkers rated false"]
+                v["factcheck"] = flags[:3]
+                return False
+            wider = external.gdelt_coverage(cfg.data_dir, terms)
+            if wider:
+                v["wider"] = wider
             seg.headline, seg.script = head, body
             return True
         feedback = ("\n\nYour previous draft was rejected by the fact and originality checker: "

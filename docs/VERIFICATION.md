@@ -29,3 +29,8 @@ Ops: `gbs doctor` reports:
 - 24-hour published/held counts and the top reasons stories were held
 
 Adding a feed: add the outlet to `config/source_registry.json` with its ownership group, or its stories can never confirm anything.
+
+## External checks (T56)
+- **GDELT DOC 2.0** (no key): how widely the event is covered worldwide. Shown as "Wider coverage" when ≥5 articles. Never confirms a story on its own. Max `GBS_GDELT_MAX` (10) calls per edition, 5 s apart, cached 3 h.
+- **Google Fact Check Tools** (`GOOGLE_FACTCHECK_API_KEY`): if the story matches a claim rated false or misleading, it is held. Cached 6 h. Off without a key.
+- **Full text via trafilatura** (`GBS_FULLTEXT=1`): fetches the source article (robots.txt respected) so facts and the originality check run against the full report, not just the summary. Internal only; never stored on the site.
