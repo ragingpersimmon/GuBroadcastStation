@@ -43,6 +43,22 @@ click anything.
 - "Mark GU-261110-7F3K booked." It runs `gu.ps1 reply GU-261110-7F3K -Status booked`.
 - "Is the site healthy?" It runs `gu.ps1 doctor`.
 
+## Optional: screen control (MCP)
+
+You need this only for jobs that have no script, like clicking through an app. Gu ops itself doesn't need it.
+
+1. AionUi → Settings → MCP → add (stdio):
+   ```json
+   {"mcpServers":{"computer-control-mcp":{"command":"uvx","args":["computer-control-mcp@latest"]}}}
+   ```
+   You need `uv` first: `winget install astral-sh.uv`. The first run downloads about 70 MB.
+2. Model: to act on screenshots it has to be a vision model (Gemma 3 27B, Qwen2.5-VL or similar). A text-only
+   27B can only use the OCR and text tools, and it clicks badly.
+3. Turn MCP on only for the assistant that needs it. Don't give it to "Gu ops".
+4. Rules for any screen-control assistant: no passwords, keys or payment details; never change security,
+   firewall or SSH settings; ask before any send, submit, delete or purchase. Slamming the mouse into a
+   screen corner stops it (PyAutoGUI fail-safe).
+
 ## Limits
 
 - The 27B is good at running these scripts and summarising their output. Code changes to the newsroom (the
