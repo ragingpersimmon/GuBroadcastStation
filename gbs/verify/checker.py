@@ -229,4 +229,5 @@ def public_summary(v: dict | None) -> dict | None:
             "facts_confirmed": v.get("facts", {}).get("confirmed", 0),
             "facts_dropped": v.get("facts", {}).get("unconfirmed_dropped", 0),
             "original": v.get("originality", {}).get("ok", False),
-            "neutral": v.get("neutrality", {}).get("ok", False), "checked": v.get("checked")}
+            "neutral": v.get("neutrality", {}).get("ok", False), "checked": v.get("checked"),
+            "wider": v.get("wider")}

@@ -175,6 +175,10 @@ def check_panel(a: dict) -> str:
             ("Facts cross-checked", f'{c["facts_confirmed"]} confirmed by more than one report'
              + (f'; {c["facts_dropped"]} single-source figures left out' if c.get("facts_dropped") else "")),
             ("Original writing", ok(c.get("original"))), ("Neutral language", ok(c.get("neutral")))]
+    w = c.get("wider") or {}
+    if w.get("articles", 0) >= 5:
+        rows.insert(1, ("Wider coverage", f'{w["articles"]} articles from {w["domains"]} outlets'
+                        + (f' in {w["countries"]} countries' if w.get("countries", 0) > 1 else "") + ", last 48 hours"))
     return ('<section class="checks" aria-labelledby="chk-h"><h2 id="chk-h">How this story was verified</h2><dl>'
             + "".join(f"<dt>{k}</dt><dd>{v}</dd>" for k, v in rows)
             + '</dl><p>Gu publishes only what at least two independent news organisations report. '
