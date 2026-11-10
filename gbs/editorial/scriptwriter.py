@@ -43,8 +43,35 @@ def outlet_name(source_key: str) -> str:
     return OUTLET_NAMES.get(o, o)
 
 
-def _chat(cfg: Settings, system: str, user: str, timeout: int = 90) -> str:
-    payload = {"model": cfg.llm_model, "temperature": 0.5,
+_MODEL_CACHE: dict[str, str] = {}
+
+
+def resolve_model(cfg: Settings) -> str:
+    """LLM_MODEL=auto (default): ask the server which models it has and take the largest
+    chat model (Ollama /api/tags gives sizes; other servers: the first /models entry)."""
+    if cfg.llm_model and cfg.llm_model != "auto":
+        return cfg.llm_model
+    if cfg.llm_base_url in _MODEL_CACHE:
+        return _MODEL_CACHE[cfg.llm_base_url]
+    name = ""
+    root = re.sub(r"/v1/?$", "", cfg.llm_base_url)
+    try:
+        with urllib.request.urlopen(f"{root}/api/tags", timeout=8) as r:
+            tags = [m for m in json.loads(r.read()).get("models", []) if "embed" not in m["name"]]
+        name = max(tags, key=lambda m: m.get("size", 0))["name"] if tags else ""
+    except Exception:
+        try:
+            with urllib.request.urlopen(f"{cfg.llm_base_url}/models", timeout=8) as r:
+                data = json.loads(r.read()).get("data", [])
+            name = data[0]["id"] if data else ""
+        except Exception as exc:
+            log.warning("LLM model discovery failed: %s", exc)
+    _MODEL_CACHE[cfg.llm_base_url] = name
+    return name
+
+
+def _chat(cfg: Settings, system: str, user: str, timeout: int = 120) -> str:
+    payload = {"model": resolve_model(cfg), "temperature": 0.4,
                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
     headers = {"Content-Type": "application/json"}
     if cfg.llm_api_key:
@@ -113,9 +140,78 @@ def template_script(seg: Segment, talent: dict | None = None) -> str:
     return f"{seg.story.title.strip().rstrip('.')}."
 
 
-def write_script(cfg: Settings, seg: Segment, talent: dict) -> str:
+def _facts_brief(seg: Segment) -> str:
+    from gbs.verify.checker import cross_check
+    f = cross_check(seg.members)
+    lines = []
+    if f["confirmed_numbers"]:
+        lines.append("Figures confirmed by 2+ independent reports (you may use these): " + ", ".join(f["confirmed_numbers"]))
+    if f["unconfirmed_numbers"]:
+        lines.append("Figures in only ONE report (do NOT use): " + ", ".join(f["unconfirmed_numbers"]))
+    return "\n".join(lines)
+
+
+def _parse_story(text: str) -> tuple[str, str]:
+    m = re.search(r"HEADLINE:\s*(.+?)\s*(?:\n|$)", text, re.I)
+    r = re.search(r"(?:READ|SCRIPT):\s*(.+)", text, re.I | re.S)
+    head = (m.group(1) if m else "").strip().strip('"').rstrip(".")
+    body = (r.group(1) if r else "").strip().strip('"')
+    return head, body
+
+
+def write_story(cfg: Settings, seg: Segment, talent: dict, attempts: int = 3) -> bool:
+    """Gu's own headline + spoken read, gated by the verification engine.
+    Sets seg.headline / seg.script / seg.verify. Returns True when publishable.
+    No LLM, or a draft that keeps failing the checks -> not published (nothing is copied)."""
+    from gbs.verify.checker import corroborate, verify
+    c = corroborate(seg.members)
+    seg.headline, seg.script = "", ""
+    if not c["confirmed"]:
+        seg.verify = {"publish": False, "problems": [f"only {c['independent']} independent source(s)"],
+                      "corroboration": c}
+        return False
+    if not cfg.llm_base_url:
+        seg.verify = {"publish": False, "problems": ["rewriter offline"], "corroboration": c}
+        return False
     system = (f"{STANDARDS}\n{tone_instruction(talent, seg_sensitive(seg))}\n"
-              "Write a spoken news read of 60-110 words for this story. Output the read only, no sign-off.")
+              f"The material holds {c['independent']} independent reports on one event from different news "
+              "organisations. Report only what they agree on; where they differ, say reports differ or leave it out. "
+              "Write in your own words from scratch: never reuse a report's headline, and never copy five or more "
+              "words in a row from the material (names of people, places and organisations excepted). "
+              "Neutral, plain language: no loaded or sensational words, no adjectives of judgement, no exclamation "
+              "marks; attribute every claim to who made it.\n"
+              "Output exactly two lines:\nHEADLINE: <8-14 word factual headline, sentence case>\n"
+              "READ: <spoken news read, 60-110 words>")
+    user = f"Desk: {seg.story.desk}\nMaterial:\n{_material(seg)}\n{_facts_brief(seg)}"
+    feedback = ""
+    for _ in range(attempts):
+        try:
+            raw = _chat(cfg, system, user + feedback)
+        except Exception as exc:
+            log.warning("LLM failed (%s): story held back", exc)
+            seg.verify = {"publish": False, "problems": ["rewriter error"], "corroboration": c}
+            return False
+        head, body = _parse_story(raw)
+        head, body = scrub_outlets(head), scrub_outlets(body)
+        v = verify(head, body, seg.members)
+        seg.verify = v
+        if v["publish"]:
+            seg.headline, seg.script = head, body
+            return True
+        feedback = ("\n\nYour previous draft was rejected by the fact and originality checker: "
+                    + "; ".join(v["problems"]) + ". Rewrite it from scratch fixing these.")
+    return False
+
+
+def write_script(cfg: Settings, seg: Segment, talent: dict) -> str:
+    n = len({outlet_name(x.source) for x in [seg.story, *seg.related]})
+    confirm = ("The material holds independent reports from different news organizations. Lead with what "
+               "the reports agree on; if they differ on a detail, say reports differ, or leave it out. "
+               if n >= 2 else
+               "Only one report so far: present it as developing, and keep to what that report states. ")
+    system = (f"{STANDARDS}\n{tone_instruction(talent, seg_sensitive(seg))}\n{confirm}"
+              "Write a spoken news read of 60-110 words for this story, entirely in your own words: no phrase "
+              "of five or more words from the material. Output the read only, no sign-off.")
     user = f"Desk: {seg.story.desk}\nMaterial:\n{_material(seg)}"
     return scrub_outlets(_try_llm(cfg, system, user, template_script(seg, talent)))
 
@@ -123,7 +219,7 @@ def write_script(cfg: Settings, seg: Segment, talent: dict) -> str:
 # ---------------- show bookends & bumpers ----------------
 
 def write_open(cfg: Settings, show: dict, anchor: dict, rundown: list[Segment]) -> str:
-    heads = [s.story.title for s in rundown[:3]]
+    heads = [s.headline for s in rundown[:3] if s.headline]
     serious = any(seg_sensitive(s) for s in rundown[:3])
     fallback = f"This is {show['name']} on Gu. I'm {anchor['name']}. " + \
         ("Tonight: " if show["id"] == "evening" else "Top stories: ") + "; ".join(heads) + "."
@@ -169,7 +265,7 @@ def write_signature_open(cfg: Settings, show: dict, anchor: dict, rundown: list[
     """Fixed signature + daypart + top-story tease. Only the tease is written by the LLM.
     Returns (on-screen text, spoken text)."""
     sig, daypart = anchor["signature"], show.get("daypart", "evening")
-    heads = [s.story.title.rstrip(".") for s in rundown[:3]]
+    heads = [s.headline.rstrip(".") for s in rundown[:3] if s.headline]
     serious = any(seg_sensitive(s) for s in rundown[:3])
     variant = None if (serious or not allow_variant) else _variant_due(sig, show, now, state_path)
     if variant:
@@ -203,7 +299,7 @@ def write_close(cfg: Settings, show: dict, anchor: dict) -> str:
 
 
 def write_breaking(cfg: Settings, echo: dict, seg: Segment) -> str:
-    fallback = f"Breaking update from Gu: {seg.story.title}. More as it comes in."
+    fallback = f"Breaking update from Gu: {seg.headline}. More as it comes in."
     system = (f"{STANDARDS}\n{tone_instruction(echo, True)}\n"
               "Write a breaking-news bumper of 30 words or fewer: urgent but not alarmist. Start with "
               "'Breaking update from Gu:'. Output the read only.")

@@ -21,7 +21,9 @@ LINE = "This is Harold Yi at Gu Broadcasting Station, where we follow the story 
 
 
 def segs(*titles):
-    return [Segment(story=Story(f"{i}" * 64, "world", "world:bbc", t, "", "https://x", 0.0)) for i, t in enumerate(titles)]
+    from tests.helpers import verified
+    return verified([Segment(story=Story(f"{i}" * 64, "world", "world:bbc", t, "", "https://x", 0.0))
+                     for i, t in enumerate(titles)])
 
 
 def cfg_(tmp_path):
@@ -79,9 +81,12 @@ def test_edition_harold_leads_vale_assists(tmp_path, monkeypatch):
     cfg = cfg_(tmp_path)
     monkeypatch.setattr(cli, "settings", lambda: cfg)
     monkeypatch.setattr("gbs.anchors.roster.now_local", lambda: datetime(2026, 11, 4, 18, 20, tzinfo=TZ))
-    StoryStore(cfg.db_path).add([
+    cfg.llm_base_url = "http://fake.llm/v1"
+    StoryStore(cfg.db_path).add([   # each event reported by two independent organisations
         Story("a" * 64, "politics", "politics:npr", "Council passes budget", "Detail.", "https://e/1", time.time()),
+        Story("c" * 64, "politics", "politics:guardian", "Council passes budget", "Detail.", "https://e/3", time.time()),
         Story("b" * 64, "unknowndesk", "x:bbc", "Bakery wins bread award", "Detail.", "https://e/2", time.time()),
+        Story("d" * 64, "unknowndesk", "x:dw", "Bakery wins bread award", "Detail.", "https://e/4", time.time()),
     ])
     assert cli.main(["rundown"]) == 0
     order = json.loads((cfg.site_out / "rundown.json").read_text())

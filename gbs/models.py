@@ -33,6 +33,8 @@ class Segment:
     presenter_title: str = ""
     script: str = ""
     sponsor_read: Optional[str] = None
+    headline: str = ""       # Gu's own headline (never a source's); set by scriptwriter.write_story
+    verify: dict = field(default_factory=dict)   # gbs.verify.checker.verify() report
 
     @property
     def sources(self) -> list:
@@ -44,6 +46,16 @@ class Segment:
         return out
 
     @property
+    def members(self) -> list:
+        return [self.story, *self.related]
+
+    @property
+    def title(self) -> str:
+        """Public headline: Gu's own. Never falls back to a source headline."""
+        return self.headline
+
+    @property
     def slug(self) -> str:
-        base = re.sub(r"[^a-z0-9]+", "-", self.story.title.lower()).strip("-")[:70]
+        # URL words come from Gu's headline; the hash keeps it unique and stable per event
+        base = re.sub(r"[^a-z0-9]+", "-", (self.headline or "story").lower()).strip("-")[:70]
         return f"{base}-{self.story.item_hash[:8]}"

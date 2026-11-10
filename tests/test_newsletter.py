@@ -8,6 +8,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from tests.helpers import verified
+
 from gbs.config import Settings
 from gbs.models import Segment, Story
 from gbs.newsletter import run
@@ -52,7 +54,7 @@ def _recent(store, days):
 
 
 def _publish(cfg, segs):
-    build_site(cfg, segs, show={"id": "morning", "name": "Gu Morning", "anchor": "harold"})
+    build_site(cfg, verified(segs), show={"id": "morning", "name": "Gu Morning", "anchor": "harold"})
 
 
 SEGS = [

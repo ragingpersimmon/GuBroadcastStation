@@ -2,3 +2,4 @@
 feedparser>=6.0
 # Studio box only (kwon9000 / 5090): piper-tts, ffmpeg (system package), ComfyUI + nodes
 # piper-tts>=1.2
+beautifulsoup4>=4.12        # site translation (gbs/site/i18n.py)

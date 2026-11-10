@@ -430,6 +430,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.webhook()
             if not self.same_origin():
                 return self.json({"error": "bad origin"}, 403)
+            if path == "/api/inquiry":
+                return self.inquiry(self.form())
             if path == "/auth/logout":
                 return self.redirect("/", [self.cookie("gu_s", "", 0), self.cookie("gu_m", "", 0, http_only=False)])
             if path == "/billing/checkout":
@@ -477,6 +479,18 @@ class Handler(BaseHTTPRequestHandler):
         if plan["mode"] == "payment" and plan.get("limit") and founding_count() >= plan["limit"]:
             return self.redirect("/membership/?error=soldout")
         return self.redirect(checkout_session(m, plan))
+
+    def inquiry(self, f: dict):
+        from gbs.account import inquiries
+        g, err = inquiries.validate(f)
+        if err == "spam":
+            return self.redirect("/work-with-us/thanks/")          # don't tell bots they were caught
+        if err:
+            return self.redirect(f"/work-with-us/?error={err}#form")
+        site = json.loads((REPO / "config" / "site.json").read_text())
+        rec = inquiries.save(conn(), g, site)
+        log.info("inquiry %s (%s)", rec["ref"], rec["kind"])
+        return self.redirect(f"/work-with-us/thanks/?ref={urllib.parse.quote(rec['ref'])}")
 
     def webhook(self):
         n = int(self.headers.get("Content-Length") or 0)

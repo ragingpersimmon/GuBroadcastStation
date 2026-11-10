@@ -50,12 +50,12 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS published (
   slug TEXT PRIMARY KEY, ts REAL, story_ts REAL, show_id TEXT, desk TEXT, title TEXT,
   standfirst TEXT, script TEXT, presenter TEXT, presenter_title TEXT, sources TEXT,
-  sponsor_read TEXT, video TEXT, risk REAL
+  sponsor_read TEXT, video TEXT, risk REAL, story_key TEXT, rewritten INTEGER DEFAULT 0, verify TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_pub_ts ON published(ts);
 """
 COLS = ["slug", "ts", "story_ts", "show_id", "desk", "title", "standfirst", "script", "presenter",
-        "presenter_title", "sources", "sponsor_read", "video", "risk"]
+        "presenter_title", "sources", "sponsor_read", "video", "risk", "story_key", "rewritten", "verify"]
 
 
 def standfirst(script: str, title: str) -> str:
@@ -71,19 +71,34 @@ class PublishedStore:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(str(path))
         self.db.executescript(SCHEMA)
+        have = {r[1] for r in self.db.execute("PRAGMA table_info(published)")}
+        for col, typ in (("story_key", "TEXT"), ("rewritten", "INTEGER DEFAULT 0"), ("verify", "TEXT")):
+            if col not in have:   # databases from before the verification engine
+                self.db.execute(f"ALTER TABLE published ADD COLUMN {col} {typ}")
+        self.db.commit()
 
     def upsert(self, rows: list[dict]) -> None:
         for r in rows:
-            old = self.db.execute("SELECT ts, video FROM published WHERE slug=?", (r["slug"],)).fetchone()
+            old = None
+            if r.get("story_key"):   # same event again: keep its URL (the headline may be reworded)
+                old = self.db.execute("SELECT ts, video, slug FROM published WHERE story_key=?",
+                                      (r["story_key"],)).fetchone()
+                if old:
+                    r["slug"] = old[2]
+            if not old:
+                old = self.db.execute("SELECT ts, video, slug FROM published WHERE slug=?", (r["slug"],)).fetchone()
             if old:  # keep first-published time; keep a video once we have one
                 r["ts"] = old[0]
                 r["video"] = r.get("video") or old[1]
             self.db.execute(f"INSERT OR REPLACE INTO published ({','.join(COLS)}) VALUES ({','.join('?' * len(COLS))})",
-                            [json.dumps(r[c]) if c == "sources" else r.get(c) for c in COLS])
+                            [json.dumps(r.get(c)) if c in ("sources", "verify") else r.get(c) for c in COLS])
         self.db.commit()
 
     def slugs(self) -> set[str]:
         return {r[0] for r in self.db.execute("SELECT slug FROM published")}
+
+    def keys(self) -> set[str]:
+        return {r[0] for r in self.db.execute("SELECT story_key FROM published WHERE story_key IS NOT NULL")}
 
     def recent(self, days: int = 30) -> list[dict]:
         rows = self.db.execute(f"SELECT {','.join(COLS)} FROM published WHERE ts>=? ORDER BY ts DESC",
@@ -92,6 +107,9 @@ class PublishedStore:
         for row in rows:
             d = dict(zip(COLS, row))
             d["sources"] = json.loads(d["sources"] or "[]")   # internal only: never rendered
+            d["verify"] = json.loads(d["verify"]) if d.get("verify") else None
+            if not d.get("rewritten"):
+                continue      # not verified + rewritten by Gu (e.g. pre-engine template stories): never public
             out.append(public_view(d))
         return out
 
@@ -116,7 +134,12 @@ def public_view(a: dict) -> dict:
     if re.search(r"Full sourcing is on our site|That's according to", script):
         script = f"{title.rstrip('.')}."
     script = scrub_outlets(script)
-    return {**a, "title": title, "script": script, "standfirst": standfirst(script, title)}
+    from gbs.verify.checker import profile, public_summary
+    v = public_summary(a.get("verify")) if isinstance(a.get("verify"), dict) else None
+    n = v["independent"] if v else len({profile(x.get("source", ""))["group"]
+                                        for x in a.get("sources") or [] if x.get("source")})
+    return {**a, "title": title, "script": script, "standfirst": standfirst(script, title),
+            "confirmed": n, "check": v}
 
 
 def article_url(a: dict) -> str:

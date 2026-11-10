@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.helpers import verified
+
 from gbs.config import Settings
 from gbs.models import Segment, Story
 from gbs.site.build import build_site
@@ -21,7 +23,7 @@ EXPECTED = ["/", "/latest/", "/live/", "/world/", "/world/asia/", "/world/africa
             "/business/markets/", "/business/consumer/", "/tech/", "/science/", "/entertainment/", "/sports/",
             "/local/", "/local/weather/", "/local/traffic/", "/markets/", "/video/", "/shows/", "/shows/evening/",
             "/shows/gucast/", "/people/", "/people/tessa/", "/people/margo/", "/people/coach/", "/archive/", "/search/",
-            "/newsletter/", "/newsletter/thanks/", "/newsletter/confirmed/", "/newsletter/guide/", "/about/", "/about/standards/", "/about/ai/", "/about/corrections/", "/login/", "/account/", "/membership/", "/membership/thanks/",
+            "/newsletter/", "/newsletter/thanks/", "/newsletter/confirmed/", "/newsletter/guide/", "/about/", "/about/standards/", "/about/ai/", "/about/corrections/", "/login/", "/account/", "/membership/", "/membership/thanks/", "/work-with-us/", "/work-with-us/thanks/",
             "/contact/", "/tips/", "/advertise/", "/advertise/guidelines/", "/privacy/", "/terms/", "/cookies/",
             "/accessibility/", "/sitemap/", "/404.html", "/feed.xml", "/world/feed.xml", "/sitemap.xml",
             "/news-sitemap.xml", "/robots.txt", "/manifest.webmanifest", "/search-index.json", "/assets/gu.css",
@@ -66,6 +68,7 @@ def site(tmp_path, monkeypatch):
         segs.append(Segment(story=st, anchor_id=name, presenter_title=title,
                             script=f"Story {i} on the {d} desk. The council voted, according to BBC News.\nSecond paragraph.",
                             sponsor_read="Sponsored by Gu Broadcasting Station. Advertise with us." if i == 4 else None))
+    verified(segs)
     (cfg.site_out / "v").mkdir(parents=True)
     (cfg.site_out / "v" / f"{segs[0].slug}.mp4").write_bytes(b"x")
     show = {"id": "evening", "name": "Gu Evening News", "anchor": "tessa"}
@@ -75,7 +78,7 @@ def site(tmp_path, monkeypatch):
                              "presenter_title": "AI Breaking/Weather Anchor", "script": "Breaking update from Gu."},
                 "close": {"kind": "close", "slug": "close-1", "title": "x", "anchor": "Tessa Vale",
                           "presenter_title": "Chief Anchor", "script": "That's Gu."}}
-    build_site(cfg, segs, pulse={"regime": "elevated", "top_headlines": ["Rates rise"]}, show=show, bookends=bookends)
+    build_site(cfg, verified(segs), pulse={"regime": "elevated", "top_headlines": ["Rates rise"]}, show=show, bookends=bookends)
     return cfg, segs
 
 
@@ -110,6 +113,7 @@ def test_story_page_contents(site):
     page = next((cfg.site_out / "story").rglob(f"{segs[4].slug}.html")).read_text()
     assert "src.example" not in page and "BBC" not in page      # sources stay confidential
     assert "according to" not in page and 'class="sources"' not in page
+    assert "Developing" in page                                  # one outlet: not confirmed
     assert "Sponsored message read on air" in page               # sponsor labelled
     assert "AI presenter" in page and "/about/ai/" in page        # disclosure
     assert '"@type": "NewsArticle"' in page
@@ -136,7 +140,7 @@ def test_home_and_chrome(site):
 def test_history_survives_next_edition(site, tmp_path):
     cfg, segs = site
     st = Story("f" * 64, "world", "world:bbc", "A brand new story", "S.", "https://n.example", time.time())
-    build_site(cfg, [Segment(story=st, anchor_id="Lena Moravec", script="A brand new story. More.")])
+    build_site(cfg, verified([Segment(story=st, anchor_id="Lena Moravec", script="A brand new story. More.")]))
     assert len(json.loads((cfg.site_out / "search-index.json").read_text())) == len(segs) + 1
     assert "A brand new story" in (cfg.site_out / "index.html").read_text()
     assert next((cfg.site_out / "story").rglob(f"{segs[5].slug}.html")).exists()   # old pages kept

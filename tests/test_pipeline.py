@@ -9,7 +9,7 @@ import pytest
 from gbs.anchors.comfy_client import fill
 from gbs.config import Settings
 from gbs.editorial.rundown import build_rundown, cluster
-from gbs.editorial.scriptwriter import write_script
+from gbs.editorial.scriptwriter import write_story
 from gbs.models import Story
 from gbs.newsdesk.fiveprotocol_bridge import NewsBridge
 from gbs.newsdesk.store import StoryStore
@@ -34,7 +34,7 @@ def _cfg(tmp: Path) -> Settings:
     c.fiveprotocol_path = FIVEP
     c.data_dir = tmp / "data"
     c.site_out = tmp / "public"
-    c.llm_base_url = ""
+    c.llm_base_url = "http://fake.llm/v1"   # tests/helpers.fake_chat stands in for the model
     c.fiveprotocol_push_key = ""
     return c
 
@@ -69,11 +69,18 @@ def test_bridge_to_site(tmp_path):
     quake = next(s for s in rundown if "earthquake" in s.story.title.lower())
     assert len(quake.sources) == 2
     lena = {"name": "Lena Moravec", "title": "International Correspondent", "style": "Calm.", "sample": "x"}
+    published = []
     for seg in rundown:
         seg.anchor_id, seg.presenter_title = lena["name"], lena["title"]
-        seg.script = write_script(cfg, seg, lena)
-        assert "according to" not in seg.script                # no on-air outlet credits
-        assert seg.script == seg.story.title.rstrip(".") + "."   # no LLM: headline only, no copied summary
+        if write_story(cfg, seg, lena):
+            published.append(seg)
+    # only the quake is confirmed by two independent organisations; single reports are held back
+    assert [s.story.item_hash for s in published] == [quake.story.item_hash]
+    assert quake.headline and quake.headline.lower() not in {s.title.lower() for s in quake.members}
+    assert "according to" not in quake.script and quake.verify["originality"]["ok"]
+    held = next(s for s in rundown if s is not quake)
+    assert held.verify["problems"] == ["only 1 independent source(s)"]
+    rundown = published
 
     out = build_site(cfg, rundown, pulse={"regime": "calm"})
     index = (out / "index.html").read_text()
@@ -82,7 +89,7 @@ def test_bridge_to_site(tmp_path):
     assert quake_pages and "guardian.example" not in quake_pages[0].read_text()   # sources confidential
     assert "guardian.example/9" in (out / "rundown.json").read_text()             # ...but kept internally
     assert (out / "feed.xml").exists() and (out / "sitemap.xml").exists()
-    assert len(json.loads((out / "rundown.json").read_text())) == 3
+    assert len(json.loads((out / "rundown.json").read_text())) == 1   # only the confirmed story
     # trading-bot state files untouched: bridge writes only under GBS data dir
     assert (cfg.data_dir / "fiveprotocol" / "seen.json").exists()
 
