@@ -98,6 +98,19 @@ nav.primary li:hover > .sub,nav.primary li:focus-within > .sub{display:block}
 .deck{font:400 18px/1.5 var(--serif);color:var(--slate);margin:10px 0 0}
 .meta{font-size:13px;color:var(--slate);margin-top:8px;display:flex;gap:10px;flex-wrap:wrap}
 .meta a{color:var(--ink);font-weight:600}
+.confirmed,.developing{display:inline-flex;align-items:center;gap:5px;font:700 12px/1 var(--sans);letter-spacing:.01em;padding:4px 7px;border-radius:2px;white-space:nowrap}
+.confirmed{background:#1f5f3f;color:#fff}
+.confirmed::before{content:"\2713";font-weight:900}
+.developing{background:var(--wash);color:var(--slate);border:1px solid var(--rule)}
+.byline .verify{margin-left:auto}
+.checks{margin:28px 0;padding:16px 20px;background:var(--card);border:1px solid var(--rule);border-left:5px solid #1f5f3f}
+.checks h2{font:800 16px/1.2 var(--sans);margin:0 0 10px}
+.checks dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 18px;margin:0 0 10px;font-size:15px}
+.checks dt{font-weight:700}
+.checks dd{margin:0}
+.checks p{margin:0;font-size:14px;color:var(--slate)}
+.checks .pass{color:#1f5f3f;font-weight:700}
+.checks .fail{color:var(--slate)}
 .badge-video{display:inline-flex;align-items:center;gap:5px;font:700 12px/1 var(--sans);color:var(--ink);background:var(--gold);padding:4px 7px;border-radius:2px;margin-right:6px;vertical-align:2px}
 .badge-video::before{content:"";border-left:7px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent}
 
@@ -223,6 +236,31 @@ nav.primary li:hover > .sub,nav.primary li:focus-within > .sub{display:block}
 .sev-major .sev{background:var(--red);color:#fff}
 .sev-moderate .sev{background:var(--gold);color:var(--ink)}
 
+/* Work with us */
+.work-form{display:grid;gap:14px;max-width:640px;margin:10px 0 30px}
+.work-form fieldset{border:1px solid var(--rule);padding:12px 14px;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
+.work-form legend{font:700 15px/1 var(--sans);padding:0 6px}
+.work-form label{display:grid;gap:5px;font:600 14px/1.3 var(--sans)}
+.work-form .opt{display:flex;gap:8px;align-items:center;font-weight:500}
+.work-form input:not([type=radio]),.work-form select,.work-form textarea{font:400 16px/1.4 var(--sans);padding:9px 10px;border:1px solid var(--rule);background:var(--card);color:var(--ink);border-radius:2px}
+.work-form .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.work-form .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.steps li{margin:8px 0}
+@media (max-width:640px){.work-form .row2,.work-form fieldset{grid-template-columns:1fr}}
+
+/* EN | KR switch (top bar, right) */
+nav.langs{display:inline-flex;border:1px solid var(--ink);border-radius:2px;overflow:hidden}
+nav.langs a{font:700 12px/1 var(--sans);letter-spacing:.06em;padding:5px 8px;color:var(--ink)}
+nav.langs a + a{border-left:1px solid var(--ink)}
+nav.langs a[aria-current="true"]{background:var(--ink);color:var(--paper)}
+nav.langs a:hover{text-decoration:none;background:var(--wash)}
+nav.langs a[aria-current="true"]:hover{background:var(--ink)}
+.onair .right > nav.langs::before{content:none}
+.i18n-note{margin:16px 0 0}
+:lang(ko){--sans:"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;--serif:"Noto Serif KR","Apple SD Gothic Neo",serif}
+:lang(ko) .hl{letter-spacing:0;line-height:1.3;word-break:keep-all}
+:lang(ko) .body,:lang(ko) .prose{line-height:1.85;word-break:keep-all}
+
 /* Sign-in + membership */
 .providers{display:grid;gap:10px;max-width:380px;margin:10px 0 24px}
 .btn.provider{justify-content:center;padding:13px 16px;font-size:15px;background:var(--card)}
@@ -287,6 +325,7 @@ footer.site .base .gu{font:900 28px/1 var(--sans);font-stretch:62%;color:var(--r
   nav.primary > .wrap > ul > li > a{padding-left:0}
   .listing li{grid-template-columns:1fr;gap:4px}
   .onair .wx-place,.onair .wx{display:none}
+  .onair .right > *:not(nav.langs){display:none}
   .plans{grid-template-columns:1fr}
   .mast .tools .btn.ghost{display:none}
   .newsletter-band{grid-template-columns:1fr}
@@ -298,9 +337,14 @@ footer.site .base .gu{font:900 28px/1 var(--sans);font-stretch:62%;color:var(--r
 
 JS = r"""
 (function(){
-  // top bar: today's date in station time
+  var html=document.documentElement,L={};try{L=JSON.parse(document.getElementById('gu-l10n').textContent)}catch(e){}
+  var intl=L.intl||'en-CA';
+  // EN | KR: remember the choice (nginx sends returning visitors to it)
+  document.querySelectorAll('nav.langs a[data-lang]').forEach(function(a){a.addEventListener('click',function(){
+    document.cookie='gu_lang='+(a.dataset.lang||'en')+';path=/;max-age=31536000;samesite=lax'})});
+  // top bar: today's date in station time, in the page language
   var t=document.getElementById('today');
-  if(t){var tz=t.dataset.tz;function day(){try{t.textContent=new Date().toLocaleDateString('en-CA',{weekday:'short',month:'short',day:'numeric',timeZone:tz})}catch(e){}}day();setInterval(day,60000)}
+  if(t){var tz=t.dataset.tz;function day(){try{t.textContent=new Date().toLocaleDateString(intl,{weekday:'short',month:'short',day:'numeric',timeZone:tz})}catch(e){}}day();setInterval(day,60000)}
   // trending ticker: one headline at a time, every 5 s; pauses on hover/focus and with the pause button (WCAG 2.2.2)
   var tk=document.querySelector('[data-ticker]');
   if(tk){var li=tk.querySelectorAll('li'),i=0,hold=false,stop=false,pb=document.querySelector('[data-pause]');
@@ -314,6 +358,9 @@ JS = r"""
   if(nx&&nx.charAt(0)==='/'&&nx.charAt(1)!=='/')document.querySelectorAll('[data-next]').forEach(function(a){a.href=a.href.replace(/next=[^&]*/,'next='+encodeURIComponent(nx))});
   var er=new URLSearchParams(location.search).get('error'),msg=document.getElementById('auth-msg');
   if(er&&msg){msg.hidden=false;msg.textContent={state:'Your sign-in timed out. Please try again.',blocked:'This account can\'t sign in. Contact us if you think that\'s a mistake.',provider:'That sign-in option isn\'t available yet.',unavailable:'Membership checkout opens soon.',soldout:'All Founding Member places are taken. Gu Member is still open.'}[er]||'Something went wrong. Please try again.'}
+  var rf=new URLSearchParams(location.search).get('ref'),rs=document.querySelector('[data-ref]');
+  if(rs&&rf&&/^GU-\d{6}-[0-9A-F]{4}$/.test(rf))rs.textContent=rf;
+  if(er&&msg&&location.pathname.indexOf('/work-with-us')>-1){msg.textContent={email:'Please check your email address.',message:'Please tell us a little more (at least 20 characters).',name:'Please add your name and organisation.',website:'Website should start with https://',kind:'Please choose what you are interested in.'}[er]||'Something went wrong. Please try again.'}
   var acct=document.querySelector('[data-account]'),page=document.querySelector('[data-account-page]');
   if(acct||page){fetch('/auth/me',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).then(function(me){
     if(!me)return;
@@ -335,7 +382,11 @@ JS = r"""
   // relative times
   document.querySelectorAll('time[data-rel]').forEach(function(el){
     var d=new Date(el.getAttribute('datetime')),m=Math.round((Date.now()-d)/60000);
-    if(isNaN(m))return; el.textContent=m<1?'Just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' hr ago':el.textContent});
+    if(isNaN(m))return;
+    if(intl.indexOf('en')!==0){try{var rtf=new Intl.RelativeTimeFormat(intl,{numeric:'auto'});
+      if(m<1440)el.textContent=m<60?rtf.format(-Math.max(m,0),'minute'):rtf.format(-Math.round(m/60),'hour');
+      else el.textContent=d.toLocaleString(intl,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}catch(e){};return}
+    el.textContent=m<1?'Just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' hr ago':el.textContent});
   // cookie notice (only rendered when the ad network is on)
   var c=document.querySelector('.cookie');
   if(c){var k='gu-consent';var v=null;try{v=localStorage.getItem(k)}catch(e){}
@@ -365,3 +416,9 @@ import hashlib as _h
 # content hashes: pages link /assets/gu.css?v=<hash>, so browsers refetch the moment it changes
 CSS_VER = _h.sha1(CSS.encode()).hexdigest()[:10]
 JS_VER = _h.sha1(JS.encode()).hexdigest()[:10]
+
+
+# The one inline script on every page (hides ad slots for paying members before paint).
+# Its sha256 is pinned in deploy/nginx_security_headers.conf (CSP script-src); tests/test_security.py
+# fails if this text changes without updating the hash there.
+MEMBER_JS = 'try{if(/(^|; )gu_m=1/.test(document.cookie))document.documentElement.className+=" member"}catch(e){}'

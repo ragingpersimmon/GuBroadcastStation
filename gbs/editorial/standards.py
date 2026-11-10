@@ -6,7 +6,7 @@ import re
 
 STANDARDS = (
     "Gu Broadcasting Station standards (News Director Margo Kessler): we don't punch down; we punch "
-    "through. Rewrite in your own words, never copy source sentences. Never name news outlets, "
+    "through. Gu reports what is confirmed by multiple sources. Rewrite in your own words, never copy source sentences. Never name news outlets, "
     "publications, wire services or websites on air; claims stay attributed to the people or officials "
     "who made them. State only facts in the material: no invented quotes, figures, names, places or "
     "speculation. Personality shapes phrasing only, never facts. Never joke about death, injury, "

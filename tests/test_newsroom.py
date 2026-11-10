@@ -73,20 +73,20 @@ def test_local_desks():
 def test_full_edition(tmp_path, monkeypatch):
     cfg = Settings()
     cfg.data_dir, cfg.site_out, cfg.llm_base_url, cfg.fiveprotocol_push_key = \
-        tmp_path / "d", tmp_path / "p", "", ""
+        tmp_path / "d", tmp_path / "p", "http://fake.llm/v1", ""
     cfg.render_on_run = False
     monkeypatch.setattr(cli, "settings", lambda: cfg)
     monkeypatch.setattr("gbs.anchors.roster.now_local", lambda: at(2026, 11, 4, 18, 0))
     import time
-    mk = lambda h, desk, title, risk=0.0: Story(h * 8, desk, f"{desk}:bbc", title, f"{title}. More detail here.",
-                                               f"https://ex.com/{h}", time.time(), risk_score=risk)
-    StoryStore(cfg.db_path).add([
-        mk("a", "politics", "Council passes city budget"),
-        mk("b", "world", "Ceasefire holds for second night"),
-        mk("c", "sports", "Underdogs win championship final"),
-        mk("d", "business", "Markets fall sharply on rate fears", risk=0.8),
-        mk("e", "tech", "New AI model claims fewer errors"),
-    ])
+    mk = lambda h, desk, title, risk=0.0, src="bbc": Story(h * 8, desk, f"{desk}:{src}", title,
+                                                          f"{title}. More detail here.", f"https://ex.com/{h}",
+                                                          time.time(), risk_score=risk)
+    items = [("a", "politics", "Council passes city budget", 0.0), ("b", "world", "Ceasefire holds for second night", 0.0),
+             ("c", "sports", "Underdogs win championship final", 0.0),
+             ("d", "business", "Markets fall sharply on rate fears", 0.8), ("e", "tech", "New AI model claims fewer errors", 0.0)]
+    # every event confirmed by two independent organisations (BBC + DW)
+    StoryStore(cfg.db_path).add([mk(h, d, t, r) for h, d, t, r in items] +
+                                [mk(h.upper() if h != "e" else "f", d, t, r, "dw") for h, d, t, r in items])
     assert cli.main(["rundown"]) == 0
     order = json.loads((cfg.site_out / "rundown.json").read_text())
     kinds = [e["kind"] for e in order]

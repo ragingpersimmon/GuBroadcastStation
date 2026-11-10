@@ -1,0 +1,67 @@
+{
+ "_note": "Site languages. `enabled` = switcher order; English is the source and always first. A language needs: an entry here, config/i18n/<code>.json for menus/labels/page text (hand-written), and the LLM (LLM_BASE_URL) for stories and anything not in the catalog (cached in data/translations.db). Until the LLM is reachable, untranslated text stays English, marked lang=en. `short` = the switcher label.",
+ "enabled": [
+  "en",
+  "ko",
+  "ja",
+  "zh-Hans",
+  "fr",
+  "es"
+ ],
+ "languages": [
+  {
+   "code": "en",
+   "path": "",
+   "name": "English",
+   "dir": "ltr",
+   "llm": "English",
+   "intl": "en-CA",
+   "short": "EN"
+  },
+  {
+   "code": "ko",
+   "path": "ko",
+   "name": "한국어",
+   "dir": "ltr",
+   "llm": "Korean (natural news-broadcast register, 합니다체)",
+   "intl": "ko-KR",
+   "short": "KR"
+  },
+  {
+   "code": "ja",
+   "path": "ja",
+   "name": "日本語",
+   "dir": "ltr",
+   "llm": "Japanese",
+   "intl": "ja-JP",
+   "short": "JP"
+  },
+  {
+   "code": "zh-Hans",
+   "path": "zh",
+   "name": "简体中文",
+   "dir": "ltr",
+   "llm": "Simplified Chinese",
+   "intl": "zh-CN",
+   "short": "CN"
+  },
+  {
+   "code": "fr",
+   "path": "fr",
+   "name": "Français",
+   "dir": "ltr",
+   "llm": "French as written in Canada",
+   "intl": "fr-CA",
+   "short": "FR"
+  },
+  {
+   "code": "es",
+   "path": "es",
+   "name": "Español",
+   "dir": "ltr",
+   "llm": "neutral Latin American Spanish",
+   "intl": "es-419",
+   "short": "SP"
+  }
+ ]
+}

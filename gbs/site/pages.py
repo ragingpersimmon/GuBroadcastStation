@@ -27,26 +27,32 @@ def _legal_flag() -> str:
 
 def about(ctx):
     n = ctx.site
-    return ("/about/", "About Gu", "World news, rewritten in our own words and presented by AI anchors.",
-            f"""<p>Gu Broadcasting Station is a news service presented entirely by AI-generated anchors and reporters.
-Around the clock, Gu follows the world's news, picks the stories that matter, and presents short, original
-summaries on screen and on this site.</p>
+    return ("/about/", "About Gu", "World news, confirmed by multiple sources and presented by AI anchors.",
+            f"""<p>Gu Broadcasting Station is an around-the-clock news service with one rule at its centre: we report
+what is <strong>confirmed by multiple sources</strong>. A story is marked confirmed only when at least two independent
+news organizations have reported it. Everything else waits, or is clearly marked as developing.</p>
 <h2>What Gu is</h2>
-<ul><li>A summary service. Gu does not send reporters into the field. Our stories condense published reporting
-into short scripts written in our own words.</li>
-<li>Presented by AI characters. Harold Yi, Tessa Vale, NOVA, Lena Moravec and the rest of our cast
-are fictional, AI-generated presenters. None of them is a real person. <a href="/people/">Meet the cast</a>.</li>
-<li>Always on. A new edition goes out about every 15 minutes, with flagship shows in the morning, evening and
+<ul><li><strong>Confirmed first.</strong> Every story shows how many independent sources confirm it. Confirmed stories
+always rank above single reports, and our web-only briefs carry confirmed stories only.</li>
+<li><strong>In our own words.</strong> Gu does not send reporters into the field. Each story is condensed from the reports that
+confirm it and rewritten from scratch. We never republish anyone else's text.</li>
+<li><strong>Presented by AI characters.</strong> Harold Yi, Tessa Vale, NOVA, Lena Moravec and the rest of the cast are
+fictional, AI-generated presenters. None of them is a real person. <a href="/people/">Meet the cast</a>.</li>
+<li><strong>Always on.</strong> A new edition goes out about every 15 minutes, with flagship shows in the morning, evening and
 at weekends. <a href="/shows/">See the schedule</a>.</li></ul>
-<h2>How we decide what to cover</h2>
-<p>Gu follows news across world, politics, business, technology, science, entertainment and sports. Stories
-that are widely reported rank higher. Each edition is balanced across regions and topics so that one
-story can't crowd out the rest of the world. Our <a href="/about/standards/">editorial standards</a> explain the rules
-every script follows, and <a href="/about/ai/">How Gu uses AI</a> explains the technology.</p>
+<h2>Why we don't name our sources</h2>
+<p>For operational reasons, the organizations behind each confirmation are kept confidential. What we publish is the
+count, and the rule behind it: two or more independent organizations, never two versions of the same outlet.</p>
+<h2>How a story makes it on air</h2>
+<ol><li>Gu groups reports about the same event, even when their headlines are worded differently.</li>
+<li>It counts the independent organizations behind them. Two or more: confirmed. One: developing.</li>
+<li>It ranks confirmed stories by how widely they are reported and how urgent they are, and balances each edition across
+regions and topics.</li>
+<li>A presenter's script is written fresh under our <a href="/about/standards/">editorial standards</a>.</li></ol>
 <h2>Who runs Gu</h2>
 <p>Gu is operated by {e(n['operator'])}, based in {e(n['jurisdiction'])}, and was founded in {e(n['founded'])}.
-Gu is funded by sponsors and advertising. Sponsors never choose or shape our stories; see our
-<a href="/advertise/guidelines/">sponsorship guidelines</a>.</p>
+Gu is funded by members, sponsors and advertising. None of them chooses or shapes our stories; see our
+<a href="/advertise/guidelines/">sponsorship guidelines</a> and <a href="/membership/">membership</a>.</p>
 <h2>Get in touch</h2>
 <p>News tips: <a href="/tips/">send a tip</a>. Errors: <a href="/about/corrections/">request a correction</a>.
 Everything else: <a href="/contact/">contact us</a>.</p>""")
@@ -59,9 +65,14 @@ def standards(ctx):
 a show open, a breaking update or a sponsor message, is written under these standards. News director Margo Kessler's
 line sums them up: we don't punch down; we punch through. Lead anchor Harold Yi's sign-on says the rest: we
 follow the story for your better insight.</p>
+<h2>Confirmed by multiple sources</h2>
+<ul><li>A story is confirmed when at least two independent news organizations report it. Two feeds from the same
+organization count once.</li>
+<li>Every story shows its confirmation count. Stories with only one report are marked "Developing" and never outrank a
+confirmed story.</li>
+<li>Scripts lead with what the reports agree on. Where they differ, we say so, or leave the detail out.</li></ul>
 <h2>Accuracy</h2>
 <ul><li>We state only what has been reported. No invented quotes, figures, names, places or speculation.</li>
-<li>When reports disagree, we say so, or we wait.</li>
 <li>Breaking updates are short, and they are marked as developing.</li></ul>
 <h2>Our own words</h2>
 <ul><li>Every script is written in our own words. We never republish another publisher's article text.</li>
@@ -102,8 +113,10 @@ def ai(ctx):
 which Gu condenses and rewrites.</p>
 <h2>What AI does</h2>
 <table><thead><tr><th>Step</th><th>What happens</th></tr></thead><tbody>
-<tr><td>Selection</td><td>Software groups articles about the same event, ranks them by how widely they are covered and how
-urgent they are, and balances each edition across regions and topics.</td></tr>
+<tr><td>Confirmation</td><td>Software groups reports about the same event, even when worded differently, and counts the
+independent news organizations behind them. Two or more: confirmed.</td></tr>
+<tr><td>Selection</td><td>Confirmed stories rank first, then by how widely they are reported and how urgent they are. Each
+edition is balanced across regions and topics.</td></tr>
 <tr><td>Writing</td><td>A language model running on our own hardware rewrites each story as a short spoken script, under
 our <a href="/about/standards/">editorial standards</a>. If the model is unavailable, the story runs as a
 headline only until it can be rewritten.</td></tr>
@@ -114,6 +127,7 @@ depict no real person.</td></tr>
 </tbody></table>
 <h2>What AI doesn't do</h2>
 <ul><li>It doesn't report. Gu has no reporters in the field, and we never present AI output as eyewitness reporting.</li>
+<li>It doesn't turn one report into a confirmed story. The count comes from independent organizations, not from the model.</li>
 <li>It doesn't make images of real events or real people.</li>
 <li>It doesn't decide what sponsors say. Sponsor copy is provided by the sponsor and labelled.</li></ul>
 <h2>Known limits</h2>
@@ -181,7 +195,8 @@ open and close.</td></tr>
 <tr><td>Newsletter</td><td>One sponsor slot in The Gu Briefing.</td></tr>
 </tbody></table>
 <h2>Audience and rates</h2>
-<p>Ask for our current media kit with traffic, audience and rates: {_mail(ctx.emails['advertising'])}.</p>
+<p>Ask for our current media kit with traffic, audience and rates: <a href="/work-with-us/">tell us what you have in
+mind</a>, or email {_mail(ctx.emails['advertising'])}.</p>
 <h2>The rules</h2>
 <p>Sponsors never influence coverage, and every placement is labelled. Read the
 <a href="/advertise/guidelines/">sponsorship guidelines</a> before you book.</p>""")

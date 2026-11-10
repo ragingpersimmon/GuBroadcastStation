@@ -1,0 +1,23 @@
+{
+  "_note": "INTERNAL ONLY, never published. Sources are confidential. Maps each outlet (as named in gbs/editorial/scriptwriter.py OUTLET_NAMES) to its ownership group, country and type. Two reports confirm a story only when their GROUPS differ: BBC News and BBC Sport are one group; so are all Guardian feeds. Type 'official' = a primary source (agency, government, UN): it can confirm, but a story needs at least one news organization too. Weight 0..1 = how much the checker trusts the outlet's factual reporting; below 0.5 cannot confirm. Review this list when adding feeds (gbs doctor flags unknown outlets).",
+  "outlets": {
+    "BBC News":         {"group": "bbc",        "country": "GB", "type": "public_broadcaster", "weight": 0.9},
+    "BBC Sport":        {"group": "bbc",        "country": "GB", "type": "public_broadcaster", "weight": 0.9},
+    "The Guardian":     {"group": "gmg",        "country": "GB", "type": "newspaper",          "weight": 0.85},
+    "NPR":              {"group": "npr",        "country": "US", "type": "public_broadcaster", "weight": 0.9},
+    "Global News":      {"group": "corus",      "country": "CA", "type": "broadcaster",        "weight": 0.8},
+    "Al Jazeera":       {"group": "aljazeera",  "country": "QA", "type": "state_funded",       "weight": 0.75},
+    "DW":               {"group": "dw",         "country": "DE", "type": "public_broadcaster", "weight": 0.85},
+    "France 24":        {"group": "fmm",        "country": "FR", "type": "public_broadcaster", "weight": 0.85},
+    "NHK":              {"group": "nhk",        "country": "JP", "type": "public_broadcaster", "weight": 0.85},
+    "The Korea Herald": {"group": "herald",     "country": "KR", "type": "newspaper",          "weight": 0.75},
+    "UN News":          {"group": "un",         "country": "INT","type": "official",           "weight": 0.8},
+    "NASA":             {"group": "nasa",       "country": "US", "type": "official",           "weight": 0.9},
+    "Ars Technica":     {"group": "conde_nast", "country": "US", "type": "specialist",         "weight": 0.8},
+    "The Verge":        {"group": "vox",        "country": "US", "type": "specialist",         "weight": 0.75},
+    "CNBC":             {"group": "comcast",    "country": "US", "type": "broadcaster",        "weight": 0.8},
+    "MarketWatch":      {"group": "news_corp",  "country": "US", "type": "newspaper",          "weight": 0.8},
+    "ESPN":             {"group": "disney",     "country": "US", "type": "specialist",         "weight": 0.8},
+    "ScienceDaily":     {"group": "sciencedaily","country": "US","type": "aggregator",         "weight": 0.6}
+  }
+}

@@ -14,6 +14,8 @@
   newsroom   show who's on air now and the desk assignments
   heygen-list  list HeyGen avatars + voices to fill config/newsroom.json
   comfy-ping check ComfyUI on StarNet
+  inquiries   work-with-us inquiries: list open ones, or `inquiries REF replied|booked|declined|spam`
+  doctor      newsroom health: feeds, source registry, rewriter (LLM), verification pass/hold rates
   account-server  sign-in + membership service for /auth/ and /billing/ (127.0.0.1:8710)
   stock-images    refresh the Openverse CC0 / public-domain image pool now
 """
@@ -51,7 +53,8 @@ def save_edition(cfg, show, bookends, pulse, rundown) -> None:
     doc = {"show": show, "bookends": bookends, "pulse": pulse, "segments": [
         {"story": s.story.to_dict(), "related": [r.to_dict() for r in s.related],
          "anchor_id": s.anchor_id, "presenter_title": s.presenter_title,
-         "script": s.script, "sponsor_read": s.sponsor_read} for s in rundown]}
+         "script": s.script, "sponsor_read": s.sponsor_read, "headline": s.headline,
+         "verify": s.verify} for s in rundown]}
     (cfg.data_dir / "edition.json").write_text(json.dumps(doc, ensure_ascii=False))
 
 
@@ -60,7 +63,8 @@ def load_edition(cfg):
     doc = json.loads((cfg.data_dir / "edition.json").read_text())
     segs = [Segment(story=Story(**d["story"]), related=[Story(**r) for r in d["related"]],
                     anchor_id=d["anchor_id"], presenter_title=d["presenter_title"],
-                    script=d["script"], sponsor_read=d["sponsor_read"]) for d in doc["segments"]]
+                    script=d["script"], sponsor_read=d["sponsor_read"], headline=d.get("headline", ""),
+                    verify=d.get("verify") or {}) for d in doc["segments"]]
     return doc["show"], doc["bookends"], doc["pulse"], segs
 
 
@@ -96,24 +100,40 @@ def cmd_rundown(cfg) -> int:
     # assignment desk: each story goes to the reporter who owns its desk
     # stories nobody owns go to the co-anchor (e.g. Tessa Vale beside Harold Yi); the lead does open/close
     desk_anchor = by_id(nr, show["co_anchor"]) if show.get("co_anchor") else anchor
+    held = []
     for seg in rundown:
         p = presenter_for_desk(seg.story.desk, nr, desk_anchor)
         seg.anchor_id, seg.presenter_title = p["name"], p["title"]
-        seg.script = sw.write_script(cfg, seg, p)
+        if seg.story.desk in ("weather", "traffic"):
+            # Gu's own data desks (forecast, road events): our text, nothing to corroborate
+            seg.headline, seg.script = seg.story.title, sw.write_script(cfg, seg, p)
+            seg.verify = {"publish": True, "own_data": True}
+        elif not sw.write_story(cfg, seg, p):
+            held.append(seg)
+    rundown = [s for s in rundown if s not in held]
+    from gbs.verify.health import log_edition
+    if held:
+        print(f"verification held back {len(held)} stories: "
+              + "; ".join(sorted({x for s in held for x in s.verify.get("problems", [])})))
 
     # web-only desk briefs: fill thin sections with stories that didn't make air
     import os
     from gbs.editorial.rundown import desk_briefs
     from gbs.site.data import PublishedStore
-    per = int(os.getenv("GBS_SITE_EXTRA_PER_DESK", "3"))
+    per = int(os.getenv("GBS_SITE_EXTRA_PER_DESK", "2"))
+    # the local 27B writes every story (up to 3 drafts each); keep an edition inside its 15 minutes
+    budget = int(os.getenv("GBS_MAX_REWRITES", "24")) - len(rundown) - len(held)
     briefs = []
     if per > 0:
-        known = PublishedStore(cfg.data_dir / "published.db").slugs()
-        briefs = desk_briefs(stories, {s.story.item_hash for s in rundown}, per, known)
+        known = PublishedStore(cfg.data_dir / "published.db").keys()
+        briefs = desk_briefs(stories, {s.story.item_hash for s in rundown + held}, per, known,
+                             min_sources=int(os.getenv("GBS_MIN_SOURCES", "2")))
+        briefs = briefs[:max(0, budget)]
         for seg in briefs:
             p = presenter_for_desk(seg.story.desk, nr, desk_anchor)
             seg.anchor_id, seg.presenter_title = p["name"], p["title"]
-            seg.script = sw.write_script(cfg, seg, p)
+            sw.write_story(cfg, seg, p)
+        briefs = [s for s in briefs if s.verify.get("publish")]
 
     by_name = {t["name"]: t for t in nr["talent"]}
     AdBook().assign_on_air(rundown, write_fn=lambda sp, seg: sw.write_sponsor_read(cfg, by_name[seg.anchor_id], sp))
@@ -139,8 +159,9 @@ def cmd_rundown(cfg) -> int:
         hot = next((s for s in rundown if s.story.desk in ("business", "markets")), None)
     if hot is not None:
         echo = by_id(nr, brk["anchor"])
-        bookends["breaking"] = _bk("breaking", echo, sw.write_breaking(cfg, echo, hot), hot.story.title)
+        bookends["breaking"] = _bk("breaking", echo, sw.write_breaking(cfg, echo, hot), hot.headline)
 
+    log_edition(cfg, len(rundown) + len(briefs), held)
     save_edition(cfg, show, bookends, pulse, rundown)
     videos = {}
     if cfg.render_on_run and should_render(show, now):
@@ -155,7 +176,7 @@ def cmd_rundown(cfg) -> int:
 
 
 def _ticker(rundown: list[dict]) -> str:
-    return "   \u2022   ".join(s["title"] for s in rundown if s.get("kind", "story") == "story")
+    return "   \u2022   ".join(s["title"] for s in rundown if s.get("kind", "story") == "story" and s.get("title"))
 
 
 def render_rundown(cfg, rundown: list[dict], top: int) -> dict:
@@ -382,8 +403,9 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="gbs")
     p.add_argument("command", choices=["ingest", "pulse", "rundown", "run", "studio", "comfy-ping",
                                        "heygen-list", "newsroom", "comfy-tokenize", "comfy-portraits",
-                                       "comfy-voices", "newsletter", "account-server", "stock-images"])
-    p.add_argument("src", nargs="?", help="comfy-tokenize: API-format export to convert; newsletter: build|send")
+                                       "comfy-voices", "newsletter", "account-server", "stock-images", "doctor", "inquiries"])
+    p.add_argument("src", nargs="?", help="comfy-tokenize: API-format export to convert; newsletter: build|send; inquiries: REF")
+    p.add_argument("status", nargs="?", help="inquiries: new status for REF")
     p.add_argument("--kind", choices=["anchor_talking", "tts", "tts_design", "anchor_portrait"])
     p.add_argument("--force", action="store_true", help="regenerate existing portraits/voices; resend today's newsletter")
     a = p.parse_args(argv)
@@ -420,6 +442,12 @@ def main(argv=None) -> int:
         return cmd_newsroom(cfg)
     if a.command == "heygen-list":
         return cmd_heygen_list(cfg)
+    if a.command == "inquiries":
+        from gbs.account import inquiries, server
+        return inquiries.cli(server.conn(), [x for x in (a.src, a.status) if x])
+    if a.command == "doctor":
+        from gbs.verify.health import doctor
+        return doctor(cfg)
     if a.command == "account-server":
         from gbs.account.server import serve
         serve()

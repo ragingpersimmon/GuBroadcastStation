@@ -82,6 +82,34 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 - [ ] **T46 [agent]** Rebase `i18n/languages` on main; drop catalog strings about sources; add tests; ship.
 - [ ] **T47 [agent]** (blocked: T17 LLM) Until the LLM is reachable, stories are headline-only. Once it is, review 10 scripts for outlet names leaking.
 
+## 5d. Verified news engine, security, languages (2026-11-09)
+
+- [x] **T48 [agent]** Verification engine (`gbs/verify`, docs/VERIFICATION.md):
+  - 2+ independent ownership groups required; facts cross-checked.
+  - Gu-written headlines (no source headline is ever reused).
+  - Originality gate (no 6-word run) and neutral-language gate.
+  - Story-page "How this story was verified" panel.
+  - Unverified/old template stories hidden.
+- [x] **T49 [agent]** `gbs doctor` (feeds, registry, rewriter, pass/hold), `deploy/doctor.sh` (read-only server + security audit), `deploy/harden.sh` (ufw, fail2ban, unattended upgrades, SSH keys-only).
+- [x] **T50 [agent]** nginx:
+  - CSP pinned to the one inline script; X-Frame-Options, Referrer-Policy, Permissions-Policy.
+  - HSTS includeSubDomains; server_tokens off.
+  - Rate limits on /auth /billing /api; dotfiles and db files denied.
+- [x] **T51 [agent]** Languages: EN KR JP CN FR SP switch (top-bar right), /ko /ja /zh /fr /es mirrors, 189-string catalogs; stories translated by the LLM (12k chars/lang/run).
+- [x] **T52 [agent]** /work-with-us/: inquiry form → `/api/inquiry`.
+  - Each inquiry gets a reference number and is routed to ads@ or news@.
+  - Optional SMTP; tracked with `gbs inquiries`.
+- [ ] **T53 [ric]** On the droplet:
+  1. `sudo bash /opt/gubroadcast/deploy/update.sh` (it finds the kwon9000 Ollama over Tailscale).
+  2. `sudo bash /opt/gubroadcast/deploy/doctor.sh`, then paste the output.
+  3. After adding your SSH key: `sudo bash /opt/gubroadcast/deploy/harden.sh`.
+- [ ] **T54 [ric]** Keep kwon9000 Ollama running; the 27B is the only writer. When it's off, nothing new publishes.
+- [ ] **T55 [agent]** (after T53) Tune: watch `gbs doctor` held reasons for a day; adjust ORIG_RUN, loaded-word list, cluster thresholds.
+- [ ] **T56 [agent]** Optional corroboration extras:
+  - GDELT DOC 2.0 (free, no key) as an extra independent-coverage signal.
+  - Google Fact Check Tools claim search (free with API key) to flag debunked claims.
+  - trafilatura for full-text cross-checks (internal only).
+
 ## 6. Housekeeping
 
 - [x] **T28 [ric]** Review and merge PR #1 (`groundwork/news-bridge`) into `main`.
@@ -102,6 +130,13 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 ## Findings log
 
 _Agents: append dated notes here (render timings, dead feeds, prompt changes)._
+
+- 2026-11-09: External check of gubs.ca:
+  - 200, rebuilt every 15 min, account service up, billing off.
+  - Missing CSP/XFO/Referrer-Policy; nginx version exposed.
+  - Ticker and headlines were the outlets' own headlines word for word, now fixed by the engine.
+  - Droplet internals unchecked: DO console signed out; doctor.sh written for Ric.
+  - Ollama on kwon9000 listens on 100.111.143.71:11434 (tailnet); llama-server is 127.0.0.1:8080 only.
 
 - 2026-11-06: Ric: sources are confidential for operational reasons; site went beige; trending ticker replaces the on-air strip; sign-in + membership (Stripe) modelled on flowerseekingbee.com. Without an LLM the old template copied each feed's first sentence verbatim; it now publishes the headline only. Droplet also runs the Vantage Supplements stack (Spree/puma in Docker), ~1.2 of 2 GB RAM used before the account service.
 

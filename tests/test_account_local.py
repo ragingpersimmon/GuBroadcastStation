@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.helpers import verified
+
 from gbs.account import server as acct
 from gbs.editorial.rundown import desk_briefs
 from gbs.editorial.scriptwriter import scrub_outlets
@@ -190,7 +192,7 @@ def test_site_shows_weather_in_bar_and_local_pages(tmp_path):
     (stock / "abc.jpg").write_bytes(b"\xff" * 5000)
     (stock / "pool.json").write_text(json.dumps({"ts": time.time(), "pool": {"tech": [{"id": "abc", "file": "abc.jpg"}]}}))
     st = Story("a" * 64, "tech", "tech:bbc_tech", "Chipmaker unveils faster processor", "S.", "https://x.example", time.time())
-    build_site(cfg, [Segment(story=st, anchor_id="Juno Park", script="Chipmaker unveils faster processor. It is fast.")])
+    build_site(cfg, verified([Segment(story=st, anchor_id="Juno Park", script="Chipmaker unveils faster processor. It is fast.")]))
     home = (cfg.site_out / "index.html").read_text()
     assert "9&deg;C</b> Light rain" in home and "Chipmaker unveils faster processor" in home   # weather after date; ticker
     assert "/img/stock/abc.jpg" in home and "Illustrative image" in home
@@ -201,6 +203,11 @@ def test_site_shows_weather_in_bar_and_local_pages(tmp_path):
     assert tr.index("Lions Gate Bridge") < tr.index("Hwy 1") and "Old" not in tr
     story = next((cfg.site_out / "story").rglob("*.html")).read_text()
     assert "Illustrative image" in story and "x.example" not in story
+    st2 = [Story("e" * 64, "world", "world:bbc", "Summit ends with climate pledge", "s", "l", time.time()),
+           Story("f" * 64, "world", "world:dw", "Summit ends with climate pledge", "s", "l", time.time())]
+    build_site(cfg, verified([Segment(story=st2[0], related=[st2[1]], anchor_id="Lena Moravec", script="Summit ends. Pledge made.")]))
+    home = (cfg.site_out / "index.html").read_text()
+    assert "Confirmed &middot; 2 sources" in home and "dw" not in home.lower().split("illustrative")[0][-0:]
 
 
 def test_stock_pick_is_stable_and_skips_unknown():
@@ -224,10 +231,48 @@ def test_scrub_and_public_view():
 
 def test_desk_briefs_fill_thin_desks():
     now = time.time()
-    mk = lambda i, d, t: Story(f"{i:064x}", d, f"{d}:x", t, "s", "l", now)
-    stories = [mk(1, "sports", "Canucks win in overtime"), mk(2, "sports", "Raptors sign guard"),
-               mk(3, "science", "Telescope spots distant galaxy"), mk(4, "weather", "Rain all week"),
-               mk(5, "sports", "Whitecaps clinch playoff spot")]
+    mk = lambda i, d, t, o="bbc": Story(f"{i:064x}", d, f"{d}:{o}", t, "s", "l", now)
+    stories = [mk(1, "sports", "Canucks win in overtime"), mk(11, "sports", "Canucks win in overtime", "espn"),
+               mk(2, "sports", "Raptors sign guard"), mk(12, "sports", "Raptors sign guard", "espn"),
+               mk(3, "science", "Telescope spots distant galaxy"), mk(13, "science", "Telescope spots distant galaxy", "nasa"),
+               mk(4, "weather", "Rain all week"), mk(14, "weather", "Rain all week", "dw"),
+               mk(5, "tech", "Chip shortage eases")]                       # one outlet only: not confirmed
     out = desk_briefs(stories, taken={stories[0].item_hash}, per_desk=1)
     assert [s.story.desk for s in out] == ["sports", "science"]
-    assert all(s.story.item_hash != stories[0].item_hash for s in out)
+    assert all(s.story.item_hash not in (stories[0].item_hash, stories[1].item_hash) for s in out)
+    assert desk_briefs(stories, set(), per_desk=3, min_sources=1)[-1].story.desk == "tech"
+
+
+def test_cluster_merges_differently_worded_reports():
+    from gbs.editorial.rundown import build_rundown, cluster
+    now = time.time()
+    a = Story("a" * 64, "europe", "europe:bbc_europe", "Macron names Lecornu prime minister again",
+              "French President Emmanuel Macron reappointed Sebastien Lecornu on Friday.", "l", now)
+    b = Story("b" * 64, "europe", "world:france24", "Lecornu returns as French PM in Macron reshuffle",
+              "Emmanuel Macron has brought back Sebastien Lecornu.", "l", now)
+    c = Story("c" * 64, "europe", "world:dw", "Floods hit northern Italy", "Rain in Italy.", "l", now)
+    d = Story("d" * 64, "europe", "europe:bbc", "Lecornu again", "Macron and Lecornu.", "l", now)   # same outlet group
+    assert sorted(len(x) for x in cluster([a, b, c])) == [1, 2]
+    run = build_rundown([c, a, b, d])
+    assert run[0].story.title.startswith(("Macron", "Lecornu"))            # confirmed story leads
+
+
+def test_work_with_us_inquiry_is_validated_stored_and_tracked(svc, capsys):
+    from gbs.account import inquiries
+    base, _ = svc
+    good = (b"kind=sponsor_read&name=Ana+Lee&org=Maple+Coffee&email=ana%40maple.example&budget=CA%24500-2%2C000"
+            b"&message=We+would+like+a+month+of+morning+sponsor+reads+in+January.")
+    st, loc, _, _ = req(base, "/api/inquiry", "POST", data=good, headers={"Origin": "https://gu.example"})
+    assert st == 303 and loc.startswith("/work-with-us/thanks/?ref=GU-")
+    ref = loc.split("ref=")[1]
+    row = acct.conn().execute("SELECT kind, route, status FROM inquiries WHERE ref=?", (ref,)).fetchone()
+    assert tuple(row) == ("sponsor_read", "ads@gubs.ca", "new")
+    st, loc, _, _ = req(base, "/api/inquiry", "POST", data=b"kind=display&name=x&org=y&email=bad&message=short",
+                        headers={"Origin": "https://gu.example"})
+    assert "error=email" in loc
+    st, loc, _, _ = req(base, "/api/inquiry", "POST", data=good + b"&company_url=http%3A%2F%2Fspam",
+                        headers={"Origin": "https://gu.example"})
+    assert loc == "/work-with-us/thanks/" and acct.conn().execute("SELECT COUNT(*) FROM inquiries").fetchone()[0] == 1
+    assert inquiries.cli(acct.conn(), [ref, "replied"]) == 0
+    inquiries.cli(acct.conn(), [])
+    assert ref in capsys.readouterr().out

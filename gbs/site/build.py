@@ -15,6 +15,8 @@ Page map (every link in the nav/footer resolves; tests crawl it):
   /search/ (+ /search-index.json)   /newsletter/
   /about/ /about/standards/ /about/ai/ /about/corrections/   (no public sources page: sources are confidential)
   /login/ /account/ /membership/ /membership/thanks/   (sign-in + Stripe membership; service: gbs/account/server.py)
+  /work-with-us/ /work-with-us/thanks/   (ads/sponsorship inquiries -> POST /api/inquiry; gbs/account/inquiries.py)
+  /ko/...                    every page again in Korean (gbs/site/i18n.py; EN | KR switch in the top bar)
   /contact/ /tips/ /advertise/ /advertise/guidelines/
   /privacy/ /terms/ /cookies/ /accessibility/ /sitemap/ /404.html
   /feed.xml /sitemap.xml /news-sitemap.xml /robots.txt /manifest.webmanifest /ads.txt
@@ -64,6 +66,7 @@ class Ctx:
         self.by_name = {t["name"]: t for t in self.nr["talent"]}
         self.out = cfg.site_out
         self.written: list[str] = []
+        self.pages: set[str] = set()      # every file path written this build (i18n re-publishes these)
         self.articles: list[dict] = []
         self.portraits: dict[str, str] = {}
         self.localdata = localdesk.snapshot(cfg.data_dir / "local")
@@ -81,11 +84,16 @@ class Ctx:
         return datetime.fromtimestamp(ts, self.tz)
 
 
-def write(ctx: Ctx, path: str, content: str, sitemap: bool = True) -> None:
+def dest_of(out: Path, path: str) -> Path:
     rel = path.lstrip("/")
-    dest = ctx.out / (rel + "index.html" if (rel == "" or rel.endswith("/")) else rel)
+    return out / (rel + "index.html" if (rel == "" or rel.endswith("/")) else rel)
+
+
+def write(ctx: Ctx, path: str, content: str, sitemap: bool = True) -> None:
+    dest = dest_of(ctx.out, path)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(content, encoding="utf-8")
+    ctx.pages.add(path)
     if sitemap and path.endswith(("/", ".html")) and path != "/404.html":
         ctx.written.append(path)
 
@@ -108,7 +116,8 @@ def person_id(ctx: Ctx, name: str) -> str | None:
 
 def person_link(ctx: Ctx, name: str) -> str:
     pid = person_id(ctx, name)
-    return f'<a href="/people/{pid}/">{e(name)}</a>' if pid else e(name)
+    return (f'<a href="/people/{pid}/" translate="no">{e(name)}</a>' if pid
+            else f'<span translate="no">{e(name)}</span>')
 
 
 def initials(name: str) -> str:
@@ -120,7 +129,7 @@ def portrait(ctx: Ctx, tid: str, cls: str = "") -> str:
     t = ctx.talent[tid]
     if tid in ctx.portraits:
         return f'<img class="portrait {cls}" src="{ctx.portraits[tid]}" alt="{e(t["name"])}, AI-generated presenter">'
-    return f'<span class="portrait mono {cls}" aria-hidden="true">{e(initials(t["name"]))}</span>'
+    return f'<span class="portrait mono {cls}" aria-hidden="true" translate="no">{e(initials(t["name"]))}</span>'
 
 
 def video_tag(a: dict) -> str:
@@ -144,13 +153,41 @@ def thumb(ctx: Ctx, a: dict, url: str) -> str:
             f'width="600" height="338"><span class="ill">Illustrative image</span></a>')
 
 
+def confirm_badge(a: dict, long: bool = False) -> str:
+    """Gu's promise: confirmed by multiple independent sources (never named)."""
+    n = a.get("confirmed") or 0
+    if a["desk"] in ("weather", "traffic"):
+        return ""
+    if n >= 2:
+        label = f"Confirmed by {n} sources" if long else f"Confirmed &middot; {n} sources"
+        return f'<span class="confirmed" title="Reported independently by {n} news organizations">{label}</span>'
+    return '<span class="developing">Developing: one report so far</span>' if long else '<span class="developing">Developing</span>'
+
+
+def check_panel(a: dict) -> str:
+    """The source checker's result for this story: counts and pass/fail, never sources."""
+    c = a.get("check")
+    if not c or a["desk"] in ("weather", "traffic"):
+        return ""
+    ok = lambda b: '<span class="pass">Passed</span>' if b else '<span class="fail">Not run</span>'
+    rows = [("Independent confirmation", f'{c["independent"]} news organisations'
+             + (f' in {c["countries"]} countries' if c.get("countries", 0) > 1 else "")),
+            ("Facts cross-checked", f'{c["facts_confirmed"]} confirmed by more than one report'
+             + (f'; {c["facts_dropped"]} single-source figures left out' if c.get("facts_dropped") else "")),
+            ("Original writing", ok(c.get("original"))), ("Neutral language", ok(c.get("neutral")))]
+    return ('<section class="checks" aria-labelledby="chk-h"><h2 id="chk-h">How this story was verified</h2><dl>'
+            + "".join(f"<dt>{k}</dt><dd>{v}</dd>" for k, v in rows)
+            + '</dl><p>Gu publishes only what at least two independent news organisations report. '
+            'Our sources are kept confidential. <a href="/about/standards/">Our standards</a></p></section>')
+
+
 def card(ctx: Ctx, a: dict, size: str = "m", deck: bool = False, kicker: bool = True,
          show_video: bool = False, meta: bool = True, img: bool = False) -> str:
     url = article_url(a)
     k = f'<a class="kicker" href="{desk_path(a["desk"])}">{e(DESK_NAMES.get(a["desk"], a["desk"].title()))}</a>' if kicker else ""
     badge = '<span class="badge-video">Watch</span>' if a.get("video") and not show_video else ""
     d = f'<p class="deck">{e(a["standfirst"])}</p>' if deck and a.get("standfirst") else ""
-    m = (f'<p class="meta">{person_link(ctx, a["presenter"])}{time_tag(ctx, a["ts"], rel=True)}</p>'
+    m = (f'<p class="meta">{confirm_badge(a)}{person_link(ctx, a["presenter"])}{time_tag(ctx, a["ts"], rel=True)}</p>'
          if meta else "")
     vid = video_tag(a) if show_video else ""
     if img and not (show_video and a.get("video")):
@@ -200,7 +237,19 @@ def onair_bar(ctx: Ctx) -> str:
     return (f'<div class="onair" role="region" aria-label="Trending now"><div class="wrap">'
             f'<a class="tally" href="/latest/"><i aria-hidden="true"></i>Trending</a>{ticker}'
             f'<span class="right"><time id="today" data-tz="{e(str(ctx.tz))}" datetime="{now:%Y-%m-%d}">{e(today)}</time>'
-            f'{weather_bit(ctx)}</span></div></div>')
+            f'{weather_bit(ctx)}{lang_switch()}</span></div></div>')
+
+
+def lang_switch() -> str:
+    """EN | KR. hreflang links are never rewritten by the translator; {{PATH}} = this page."""
+    from gbs.site.i18n import enabled_languages, lang_prefix
+    langs = enabled_languages()
+    if len(langs) < 2:
+        return ""
+    return ('<nav class="langs" aria-label="Language" translate="no">' + "".join(
+        f'<a hreflang="{L["code"]}" lang="{L["code"]}" href="{lang_prefix(L)}{{{{PATH}}}}" data-lang="{L["path"]}"'
+        f' title="{e(L["name"])}"{" aria-current=" + chr(34) + "true" + chr(34) if i == 0 else ""}>{e(L.get("short", L["code"].upper()))}</a>'
+        for i, L in enumerate(langs)) + "</nav>")
 
 
 def nav(active: str | None) -> str:
@@ -222,8 +271,8 @@ def nav(active: str | None) -> str:
 
 def masthead(ctx: Ctx) -> str:
     return (f'<header class="mast"><div class="wrap">'
-            f'<a class="brand" href="/" aria-label="Gu Broadcasting Station home"><span class="gu">Gu</span>'
-            f'<span class="full">Broadcasting Station</span></a>'
+            f'<a class="brand" href="/" aria-label="Gu Broadcasting Station home"><span class="gu" translate="no">Gu</span>'
+            f'<span class="full" translate="no">Broadcasting Station</span></a>'
             f'<div class="tools"><a class="btn ghost" href="/search/">Search</a>'
             f'<a class="btn ghost member-cta" href="/membership/">Become a member</a>'
             f'<a class="btn" href="/login/" data-account>Sign in</a>'
@@ -251,7 +300,7 @@ def footer(ctx: Ctx) -> str:
         ("/about/corrections/", "Corrections"), ("/contact/", "Contact"),
         ("/tips/", "Send a tip")))
     biz = "".join(f'<li><a href="{u}">{n}</a></li>' for u, n in (
-        ("/membership/", "Membership"), ("/account/", "Your account"),
+        ("/membership/", "Membership"), ("/account/", "Your account"), ("/work-with-us/", "Work with us"),
         ("/advertise/", "Advertise"), ("/advertise/guidelines/", "Sponsorship guidelines"),
         ("/newsletter/", ctx.site["newsletter"]["name"]), ("/feed.xml", "RSS feeds"), ("/archive/", "Archive"),
         ("/sitemap/", "Site map")))
@@ -272,6 +321,12 @@ def footer(ctx: Ctx) -> str:
 
 def shell(ctx: Ctx, path: str, title: str, body: str, desc: str = "", active: str | None = None,
           og_type: str = "website", jsonld: dict | None = None, extra_head: str = "", top_ad: bool = True) -> str:
+    from gbs.site.i18n import JS_STRINGS, enabled_languages, lang_prefix
+    alts = "".join(f'<link rel="alternate" hreflang="{L["code"]}" href="{e(ctx.cfg.site_url + lang_prefix(L) + path)}">'
+                   for L in enabled_languages()) if path != "/404.html" else ""
+    if alts:
+        alts += f'<link rel="alternate" hreflang="x-default" href="{e(ctx.cfg.site_url + path)}">'
+    l10n = json.dumps(JS_STRINGS, ensure_ascii=False)
     full = title if title == ctx.cfg.site_name else f"{title} | {ctx.cfg.site_name}"
     desc = desc or ctx.site["tagline"]
     url = ctx.cfg.site_url + path
@@ -283,23 +338,25 @@ def shell(ctx: Ctx, path: str, title: str, body: str, desc: str = "", active: st
                   '<button class="btn solid" data-v="all">Accept ad cookies</button> '
                   '<button class="btn" data-v="essential">Essential only</button></div>')
     ad = f'<div class="wrap ad-top">{ctx.ads.web_slot("top")}</div>' if top_ad else ""
-    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+    page = f"""<!doctype html><html lang="en" dir="ltr" data-prefix=""><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(full)}</title><meta name="description" content="{e(desc)}">
 <link rel="canonical" href="{e(url)}"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#f3ece0">
-<script>try{{if(/(^|; )gu_m=1/.test(document.cookie))document.documentElement.className+=" member"}}catch(e){{}}</script>
+<script>{assets.MEMBER_JS}</script>
 <link rel="alternate" type="application/rss+xml" title="{e(ctx.cfg.site_name)}" href="/feed.xml">
 <meta property="og:site_name" content="{e(ctx.cfg.site_name)}"><meta property="og:type" content="{og_type}">
 <meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}">
 <meta property="og:url" content="{e(url)}"><meta name="twitter:card" content="summary">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="{assets.FONTS}"><link rel="stylesheet" href="/assets/gu.css?v={assets.CSS_VER}">
+{alts}<script type="application/json" id="gu-l10n">{l10n}</script>
 {ctx.ads.head_tag()}{extra_head}{ld}</head><body>
 <a class="skip" href="#main">Skip to content</a>
 {onair_bar(ctx)}{masthead(ctx)}<div id="nav">{nav(active)}</div>{breaking_band(ctx)}
 {ad}<main id="main" class="wrap">{body}</main>{footer(ctx)}{cookie}
 <script src="/assets/gu.js?v={assets.JS_VER}" defer></script></body></html>"""
+    return page.replace("{{PATH}}", path)
 
 
 def newsletter_band(ctx: Ctx) -> str:
@@ -322,7 +379,7 @@ def page_home(ctx: Ctx) -> None:
                  f'{e(DESK_NAMES.get(lead["desk"], ""))}</a><h2 class="hl hl-xl"><a href="{article_url(lead)}">'
                  f'{e(lead["title"])}</a></h2>'
                  + (f'<p class="deck">{e(lead["standfirst"])}</p>' if lead.get("standfirst") else "")
-                 + f'<p class="meta">{person_link(ctx, lead["presenter"])}{time_tag(ctx, lead["ts"], rel=True)}</p></div>'
+                 + f'<p class="meta">{confirm_badge(lead)}{person_link(ctx, lead["presenter"])}{time_tag(ctx, lead["ts"], rel=True)}</p></div>'
                  + (f'<div class="lead-more">{"".join(card(ctx, a, "s", meta=False) for a in rest[4:8])}</div>' if rest[4:] else "")
                  + "</div>")
     second = '<div class="stack">' + "".join(card(ctx, a, "m", deck=i == 0, img=i == 0) for i, a in enumerate(rest[:4])) + "</div>"
@@ -534,7 +591,8 @@ def page_story(ctx: Ctx, a: dict) -> None:
     pid = person_id(ctx, a["presenter"])
     by = (f'<div class="byline">{portrait(ctx, pid) if pid else ""}<div><div class="name">{person_link(ctx, a["presenter"])}</div>'
           f'<div class="role">{e(a.get("presenter_title") or "")}, AI presenter</div>'
-          f'<div class="when">Published {time_tag(ctx, a["ts"])}</div></div></div>')
+          f'<div class="when">Published {time_tag(ctx, a["ts"])}</div></div>'
+          f'<div class="verify">{confirm_badge(a, long=True)}</div></div>')
     paras = "".join(f"<p>{e(p)}</p>" for p in a["script"].split("\n") if p.strip())
     sponsor = (f'<aside class="sponsor-box"><span class="lbl">Sponsored message read on air</span>{e(a["sponsor_read"])}</aside>'
                if a.get("sponsor_read") else "")
@@ -560,7 +618,7 @@ def page_story(ctx: Ctx, a: dict) -> None:
                if rel else "")
     body = (f'<div class="cols"><article class="article">{crumbs}<h1 class="hl hl-xl">{e(a["title"])}</h1>'
             + (f'<p class="deck">{e(a["standfirst"])}</p>' if a.get("standfirst") else "")
-            + f'{by}{video_tag(a)}{hero}<div class="body">{paras}</div>{sponsor}{note}{share}</article>{side(ctx)}</div>{related}')
+            + f'{by}{video_tag(a)}{hero}<div class="body">{paras}</div>{sponsor}{check_panel(a)}{note}{share}</article>{side(ctx)}</div>{related}')
     ld = {"@context": "https://schema.org", "@type": "NewsArticle", "headline": a["title"][:110],
           "datePublished": t_iso(a["ts"]), "dateModified": t_iso(a["ts"]), "mainEntityOfPage": full,
           "articleSection": DESK_NAMES.get(a["desk"], ""),
@@ -757,7 +815,7 @@ def page_newsletter(ctx: Ctx) -> None:
         f'{e(i["subject"])}</li>' for i in issues[:30]) + "</ul>") if issues else ""
     body = (f'<header class="page-head"><h1>{e(n["name"])}</h1><p>{e(n["blurb"])}</p></header><div class="cols"><div class="prose">'
             f'{status}{signup_form(ctx)}'
-            '<h2>What you get</h2><ul><li>The three stories that matter most, each in two lines.</li>'
+            '<h2>What you get</h2><ul><li>The three most important confirmed stories, each in two lines.</li>'
             '<li>One or two headlines from every desk: world, politics, business, tech and science, culture and sports.</li>'
             '<li>The market pulse and the local forecast.</li>'
             f'<li>One labelled sponsor message at most. {e(n.get("cadence", ""))}, about a three-minute read.</li></ul>'
@@ -822,6 +880,8 @@ def rebuild_newsletter_pages(cfg: Settings) -> None:
     ctx = Ctx(cfg, None, {}, {})
     ctx.articles = PublishedStore(cfg.data_dir / "published.db").recent(ctx.site["archive_days"])
     page_newsletter(ctx)
+    from gbs.site.i18n import localize_site
+    localize_site(ctx)
 
 
 # ------------------------------------------------------------------ account + membership
@@ -886,6 +946,50 @@ def page_account(ctx: Ctx) -> None:
         '<p>Meanwhile: <a href="/live/">watch the latest edition</a>.</p></div>')), sitemap=False)
 
 
+# ------------------------------------------------------------------ work with us
+
+def page_work(ctx: Ctx) -> None:
+    from gbs.account.inquiries import BUDGETS, KINDS
+    kinds = "".join(f'<label class="opt"><input type="radio" name="kind" value="{k}" required'
+                    f'{" checked" if k == "sponsor_read" else ""}> {e(v[0])}</label>' for k, v in KINDS.items())
+    budgets = '<option value="">Choose one</option>' + "".join(f"<option>{e(b)}</option>" for b in BUDGETS)
+    form = ('<form id="form" class="work-form" method="post" action="/api/inquiry">'
+            f'<fieldset><legend>What are you interested in?</legend>{kinds}</fieldset>'
+            '<div class="row2"><label>Your name<input name="name" required maxlength="120" autocomplete="name"></label>'
+            '<label>Organisation<input name="org" required maxlength="160" autocomplete="organization"></label></div>'
+            '<div class="row2"><label>Work email<input type="email" name="email" required autocomplete="email"></label>'
+            '<label>Website <span class="meta">(optional)</span><input type="url" name="website" placeholder="https://"></label></div>'
+            f'<div class="row2"><label>Budget<select name="budget">{budgets}</select></label>'
+            '<label>When would you like to start? <span class="meta">(optional)</span><input name="start" maxlength="40" '
+            'placeholder="e.g. January"></label></div>'
+            '<label>Tell us about your campaign or idea<textarea name="message" required minlength="20" maxlength="4000" '
+            'rows="6"></textarea></label>'
+            '<label class="hp" aria-hidden="true">Leave this empty<input name="company_url" tabindex="-1" autocomplete="off"></label>'
+            '<p class="meta">We use these details only to reply to you. See the <a href="/privacy/">privacy policy</a>.</p>'
+            '<button class="btn solid" type="submit">Send inquiry</button>'
+            '<p id="auth-msg" class="note" hidden></p></form>')
+    steps = ('<ol class="steps"><li><strong>You tell us</strong> what you want to run and when.</li>'
+             '<li><strong>We reply within two business days</strong> with formats, availability and rates. Your '
+             'inquiry gets a reference number so every reply is tracked.</li>'
+             '<li><strong>We check fit</strong> against our <a href="/advertise/guidelines/">sponsorship guidelines</a>. '
+             'Sponsors never influence what we cover.</li>'
+             '<li><strong>You approve the copy;</strong> we schedule it, labelled as sponsored, and send a report '
+             'after it runs.</li></ol>')
+    body = ('<header class="page-head"><h1>Work with us</h1><p>Advertising, sponsorship and partnerships on a news service '
+            'built on one rule: report only what is confirmed by multiple sources.</p></header>'
+            f'<div class="cols"><div class="prose"><h2>How it works</h2>{steps}'
+            '<p>Prefer to see the formats first? <a href="/advertise/">Advertising formats</a>.</p>'
+            f'<h2>Start an inquiry</h2>{form}</div>{side(ctx)}</div>')
+    write(ctx, "/work-with-us/", shell(ctx, "/work-with-us/", "Work with us", body,
+                                       desc="Advertise, sponsor or partner with Gu Broadcasting Station."))
+    thanks = ('<header class="page-head"><h1>Thanks, we have your inquiry</h1></header><div class="prose">'
+              '<p>Your reference is <strong data-ref>on its way</strong>. Keep it handy: we quote it in every reply.</p>'
+              '<p>Someone from Gu will get back to you within two business days. If it is urgent, email '
+              + _mail_link(ctx.emails["advertising"]) + ' with your reference in the subject.</p>'
+              '<p>Meanwhile: <a href="/advertise/guidelines/">how sponsorship works at Gu</a>.</p></div>')
+    write(ctx, "/work-with-us/thanks/", shell(ctx, "/work-with-us/thanks/", "Inquiry received", thanks), sitemap=False)
+
+
 # ------------------------------------------------------------------ prose + machine files
 
 def page_prose(ctx: Ctx) -> None:
@@ -910,7 +1014,7 @@ def page_sitemap_html(ctx: Ctx) -> None:
     items = "".join(f'<li><a href="{p}">{e(p)}</a></li>' for g in sorted(groups) for p in groups[g])
     write(ctx, "/sitemap/", shell(ctx, "/sitemap/", "Site map", '<header class="page-head"><h1>Site map</h1>'
                                   '<p>Every section and page on Gu. Stories are listed in the <a href="/archive/">archive</a>.</p></header>'
-                                  f'<ul class="prose">{items}<li><a href="/sitemap/">/sitemap/</a></li></ul>'))
+                                  f'<ul class="prose" translate="no">{items}<li><a href="/sitemap/">/sitemap/</a></li></ul>'))
 
 
 def rss(ctx: Ctx, arts: list[dict], title: str, path: str) -> str:
@@ -928,7 +1032,8 @@ def rss(ctx: Ctx, arts: list[dict], title: str, path: str) -> str:
 def machine_files(ctx: Ctx) -> None:
     base = ctx.cfg.site_url
     write(ctx, "/feed.xml", rss(ctx, ctx.articles[:60], ctx.cfg.site_name, "/"), sitemap=False)
-    urls = sorted(set(ctx.written))
+    from gbs.site.i18n import enabled_languages, lang_prefix
+    urls = sorted({lang_prefix(L) + u for u in set(ctx.written) for L in enabled_languages()})
     write(ctx, "/sitemap.xml", '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
           + "".join(f"<url><loc>{base}{u}</loc></url>" for u in urls) + "</urlset>", sitemap=False)
     cutoff = time.time() - 48 * 3600
@@ -957,8 +1062,11 @@ def machine_files(ctx: Ctx) -> None:
 def _rows_from_rundown(ctx: Ctx, rundown: list[Segment], videos: dict, now: float) -> list[dict]:
     rows = []
     for i, s in enumerate(rundown):
+        if not (s.verify or {}).get("publish") or not s.headline:
+            continue      # only verified, rewritten stories are stored for publication
         rows.append({"slug": s.slug, "ts": now - i, "story_ts": s.story.ts, "show_id": ctx.show["id"],
-                     "desk": s.story.desk, "title": s.story.title, "standfirst": standfirst(s.script, s.story.title),
+                     "story_key": s.story.item_hash, "rewritten": 1, "verify": s.verify,
+                     "desk": s.story.desk, "title": s.headline, "standfirst": standfirst(s.script, s.headline),
                      "script": s.script, "presenter": s.anchor_id or ctx.anchor()["name"],
                      "presenter_title": s.presenter_title, "sources": s.sources, "sponsor_read": s.sponsor_read,
                      "video": videos.get(s.slug), "risk": s.story.risk_score})
@@ -985,12 +1093,15 @@ def build_site(cfg: Settings, rundown: list[Segment], pulse: dict | None = None,
         for r in rows:
             r["show_id"] = None
         store.upsert(rows)
-    current = {s.slug for s in rundown}
     ctx.articles = store.recent(ctx.site["archive_days"])
+    by_key = {a.get("story_key"): a["slug"] for a in ctx.articles if a.get("story_key")}
+    order = {}
+    for i, s in enumerate(rundown):   # the stored URL wins when an event was published before
+        order.setdefault(by_key.get(s.story.item_hash, s.slug), i)
+    current = set(order)
     for a in ctx.articles:
         a["video"] = a.get("video") or videos.get(a["slug"])
         a["_current"] = a["slug"] in current
-    order = {s.slug: i for i, s in enumerate(rundown)}
     cur = sorted([a for a in ctx.articles if a["_current"]], key=lambda a: order[a["slug"]])
     ctx.articles = cur + [a for a in ctx.articles if not a["_current"]]
     ctx.articles[len(cur):] = sorted(ctx.articles[len(cur):], key=lambda a: -a["ts"])
@@ -1022,13 +1133,16 @@ def build_site(cfg: Settings, rundown: list[Segment], pulse: dict | None = None,
     page_search(ctx)
     page_newsletter(ctx)
     page_account(ctx)
+    page_work(ctx)
     page_prose(ctx)
     page_sitemap_html(ctx)
     machine_files(ctx)
+    from gbs.site.i18n import localize_site
+    localize_site(ctx)
 
     # hand-off for the studio renderer (not public; nginx denies it)
     bk = bookends or {}
-    stories = [{"kind": "story", "slug": s.slug, "title": s.story.title, "desk": s.story.desk,
+    stories = [{"kind": "story", "slug": by_key.get(s.story.item_hash, s.slug), "title": s.headline, "desk": s.story.desk,
                 "anchor": s.anchor_id, "presenter_title": s.presenter_title, "script": s.script,
                 "sources": s.sources, "sponsor_read": s.sponsor_read} for s in rundown]
     seq = ([bk["breaking"]] if "breaking" in bk else []) + ([bk["open"]] if "open" in bk else []) + stories + \

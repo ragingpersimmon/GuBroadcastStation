@@ -36,7 +36,7 @@ class Settings:
     # LLM (OpenAI-compatible). Same env names as 5protocol core/llm_brain
     # so Strata over the tailnet / strata_tunnel.py just works.
     llm_base_url: str = field(default_factory=lambda: _env("LLM_BASE_URL").rstrip("/"))
-    llm_model: str = field(default_factory=lambda: _env("LLM_MODEL", "strata"))
+    llm_model: str = field(default_factory=lambda: _env("LLM_MODEL", "auto"))
     llm_api_key: str = field(default_factory=lambda: _env("LLM_API_KEY"))
 
     # ComfyUI on the 5090 box (StarNet / Tailscale)
