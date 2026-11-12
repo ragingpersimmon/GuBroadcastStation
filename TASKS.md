@@ -15,8 +15,8 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 - [ ] **T1 [ric]** Install on ComfyUI: Kijai `ComfyUI-WanVideoWrapper`, `ComfyUI-VideoHelperSuite`, `ComfyUI-OmniVoice-TTS`. Download InfiniteTalk + Wan2.1 I2V 480p weights in **fp8 or GGUF** from `Kijai/WanVideo_comfy`.
 - [ ] **T2 [ric]** Build and run four workflows by hand, then export each as API format: InfiniteTalk talking head, OmniVoice clone, OmniVoice voice design, photoreal portrait. Drop the exports in `gbs/anchors/workflows/exports/`.
 - [ ] **T3 [agent]** (blocked: T2) Run `python -m gbs comfy-tokenize <export> --kind anchor_talking|tts|tts_design|anchor_portrait` for each export. Fix any tokens it warns about by hand, and commit the templates. Done when `python -m gbs newsroom` no longer lists missing workflows.
-- [ ] **T4 [ric]** Say how the 27B is served (Ollama / llama.cpp / LM Studio / vLLM), what OS kwon9000 runs, and whether the droplet can ssh to it.
-- [ ] **T5 [agent]** (blocked: T4) Set up the GPU handoff: `GBS_GPU_HANDOFF` plus the exact `GBS_LLM_UNLOAD_CMD` / `GBS_LLM_RELOAD_CMD` in `.env.example` and docs, then test the unload → render → reload cycle.
+- [~] **T4 [ric]** Say how the 27B is served (Ollama / llama.cpp / LM Studio / vLLM), what OS kwon9000 runs, and whether the droplet can ssh to it. **Answered 2026-11-07:** llama.cpp `llama-server`, supervised by 5protocol `brain_server.py` (garden watchdog), on Windows 11. Endpoint `http://127.0.0.1:8080/v1` locally, `http://100.111.143.71:8081/v1` from the tailnet, model `qwen3.8-27b`, ctx 32768, no API key. Ollama is retired. Still open: can the droplet ssh to kwon9000?
+- [ ] **T5 [agent]** (unblocked 2026-11-07 for the local commands; droplet part waits on T4 ssh) Set up the GPU handoff: `GBS_GPU_HANDOFF` plus the exact `GBS_LLM_UNLOAD_CMD` / `GBS_LLM_RELOAD_CMD` in `.env.example` and docs, then test the unload → render → reload cycle.
 - [ ] **T6 [agent+ric]** (blocked: T3) Run `python -m gbs comfy-portraits`. Ric picks the faces (15, including lead anchor Harold Yi) and the agent re-rolls rejects (`--force`, after a new seed or `look_prompt` in `config/newsroom.json`). Commit the locked `assets/anchors/*.png`.
 - [ ] **T7 [agent+ric]** (blocked: T6) Run `python -m gbs comfy-voices`, Ric approves each voice, then commit `assets/voices/*`.
 - [ ] **T8 [agent]** (blocked: T7) Time one 40 s clip end to end and record the number here. Then set `render_top` / `render_quarters` per show in `newsroom.json` so a day's clips fit in GPU time with headroom. Today's schedule asks for ~87 clips per weekday, which is probably too many.
@@ -34,7 +34,7 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 - [ ] **T14 [agent]** (blocked: T12) On the droplet, run `python -m gbs ingest` and check every feed in `gbs/newsdesk/feeds.py` returns items. Fix or replace dead RSS URLs and log any changes here. (They couldn't be verified from the build sandbox.)
 - [x] **T15 [ric]** Local desks default to Vancouver + DriveBC Open511 (Metro Vancouver box) since 2026-11-06; override with `GBS_LOCAL_*` / `GBS_TRAFFIC_OPEN511_URL`.
 - [ ] **T16 [agent]** (blocked: T15) Check that the weather and traffic segments render against live data. Confirm the DriveBC Open511 query parameters (area / bbox) for the chosen region.
-- [ ] **T17 [agent]** Point `LLM_BASE_URL` at Strata or the 27B and review 10 real scripts for each beat (open, story, sponsor read, breaking, close). Tune the prompts in `gbs/editorial/scriptwriter.py` and `standards.py`. Persona humour must never appear on serious stories.
+- [ ] **T17 [agent]** (ready: 27B at `http://127.0.0.1:8080/v1`, model `qwen3.8-27b`) Point `LLM_BASE_URL` at Strata or the 27B and review 10 real scripts for each beat (open, story, sponsor read, breaking, close). Tune the prompts in `gbs/editorial/scriptwriter.py` and `standards.py`. Persona humour must never appear on serious stories.
 
 ## 3. Editorial quality & trust
 
@@ -122,6 +122,21 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 
 ---
 
+## Local 27B work order (added 2026-11-07)
+
+Tasks the local 27B can do without Ric, smallest first. One task per session; run `pytest -q` before committing.
+
+1. **T29** CI workflow (one YAML file).
+2. **T19** Stronger same-event clustering: start with the Jaccard fallback plus tests using real headline pairs. Leave embeddings for later.
+3. **T17** Point `LLM_BASE_URL` at the 27B and review 10 scripts per beat. Tune `scriptwriter.py` one beat at a time.
+4. **T33** Social share cards (1200x630, one story at a time, then `og:image`).
+5. **T18** `gbs review` CLI first (a web page later).
+6. **T5** GPU handoff, local half only. The 27B is parked by brain_server's `HALTED` flag at the 5protocol repo root. **Before using it, confirm `HALTED` parks only the brain and not the trader.**
+
+Needs internet once (do it while online): T35 (font files), T24/T25 (ad network, analytics).
+
+---
+
 ## Done
 
 - [x] 5protocol news bridge (library mode + market pulse), world and beat feeds, story store
@@ -152,3 +167,5 @@ _Agents: append dated notes here (render timings, dead feeds, prompt changes)._
 - 2026-11-04: Harold Yi added as lead anchor of Gu Morning and Gu Evening News, with a fixed signature open (see docs/NEWSROOM.md). Tessa Vale is now assistant anchor and Benji Powers morning co-anchor. When Harold's voice is designed in T7, check that it says the signature line straight.
 
 - 2026-11-04: Site build verified on Python 3.11 and 3.13; screenshots checked at 1366 px and 390 px. Run `pytest tests/test_site.py` after any template change; it fails on any broken internal link.
+
+- 2026-11-07: 27B confirmed on llama.cpp via 5protocol brain_server (127.0.0.1:8080, ctx 32768, ~66 tok/s on the 5090). Also reachable on the tailnet at 100.111.143.71:8081. Ollama retired. See the Local 27B work order above.
