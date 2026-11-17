@@ -24,7 +24,7 @@ if grep -q '^LLM_BASE_URL=http://100.111.143.71:11434/v1$' .env && curl -s -m 5 
   sed -i '/^LLM_BASE_URL=/d;/^LLM_MODEL=/d' .env
 fi
 if ! grep -q '^LLM_BASE_URL=.\+' .env; then
-  for u in ${GBS_LLM_CANDIDATES:-http://100.111.143.71:18080/v1 http://100.111.143.71:11434/v1 http://kwon9000:11434/v1 http://kwon9000:8080/v1}; do
+  for u in ${GBS_LLM_CANDIDATES:-http://100.111.143.71:18080/v1 http://100.111.143.71:11434/v1 http://kwon9000:11434/v1 http://kwon9000:8090/v1}; do
     if curl -s -m 5 "$u/models" | grep -q '"data"'; then
       sed -i '/^LLM_BASE_URL=/d;/^LLM_MODEL=/d' .env
       printf 'LLM_BASE_URL=%s\nLLM_MODEL=auto\n' "$u" >> .env

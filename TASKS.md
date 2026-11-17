@@ -34,7 +34,7 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
 - [ ] **T14 [agent]** (blocked: T12) On the droplet, run `python -m gbs ingest` and check every feed in `gbs/newsdesk/feeds.py` returns items. Fix or replace dead RSS URLs and log any changes here. (They couldn't be verified from the build sandbox.)
 - [x] **T15 [ric]** Local desks default to Vancouver + DriveBC Open511 (Metro Vancouver box) since 2026-11-06; override with `GBS_LOCAL_*` / `GBS_TRAFFIC_OPEN511_URL`.
 - [ ] **T16 [agent]** (blocked: T15) Check that the weather and traffic segments render against live data. Confirm the DriveBC Open511 query parameters (area / bbox) for the chosen region.
-- [ ] **T17 [agent]** (ready: 27B at `http://127.0.0.1:8080/v1`, model `qwen3.8-27b`) Point `LLM_BASE_URL` at Strata or the 27B and review 10 real scripts for each beat (open, story, sponsor read, breaking, close). Tune the prompts in `gbs/editorial/scriptwriter.py` and `standards.py`. Persona humour must never appear on serious stories.
+- [ ] **T17 [agent]** (ready: 27B at `http://127.0.0.1:8090/v1`, model `qwen3.8-27b`) Point `LLM_BASE_URL` at Strata or the 27B and review 10 real scripts for each beat (open, story, sponsor read, breaking, close). Tune the prompts in `gbs/editorial/scriptwriter.py` and `standards.py`. Persona humour must never appear on serious stories.
 
 ## 3. Editorial quality & trust
 
@@ -111,13 +111,13 @@ Status key: `[ ]` open · `[~]` in progress · `[x]` done · `(blocked: …)`
   - trafilatura full-text cross-check: internal, robots.txt respected; `GBS_FULLTEXT=1`.
 - [ ] **T57 [ric]** Optional: Google Fact Check API key (console.cloud.google.com → APIs → Fact Check Tools API → Credentials → API key) into `.env` as `GOOGLE_FACTCHECK_API_KEY`.
 - [x] **T58 [agent]** AionUi enablement: `scripts/gu.ps1` (droplet tasks over SSH from kwon9000) and `docs/AIONUI.md` (27B model setup, "Gu ops" assistant instructions, scheduled checks).
-- [ ] **T60 [ric]** Approve REQ "expose 27B to tailnet" in #garden-overseer (`tailscale serve --bg --tcp 18080 tcp://127.0.0.1:8080` on kwon9000). Ollama there has only qwen2.5-coder:7b; the 27B is llama-server on 127.0.0.1:8080. update.sh now prefers :18080 and swaps an earlier Ollama pick. `GBS_MAX_REWRITES` default 24 → 8 (shared 2-slot 27B); lower it in `.env` too if it was copied as 24.
+- [ ] **T60 [ric]** Approve REQ "expose 27B to tailnet" in #garden-overseer (`tailscale serve --bg --tcp 18080 tcp://127.0.0.1:8090` on kwon9000). Ollama there has only qwen2.5-coder:7b; the 27B is llama-server on 127.0.0.1:8090 (moved off 8080, which is the 5protocol health port, Nov 2026). update.sh now prefers :18080 and swaps an earlier Ollama pick. `GBS_MAX_REWRITES` default 24 → 8 (shared 2-slot 27B); lower it in `.env` too if it was copied as 24.
 - [ ] **T59 [ric]** AionUi setup per docs/AIONUI.md §1 (model URL, clone, `gu.ps1 ssh-test`, paste the instructions).
 
 ## 6. Housekeeping
 
 - [x] **T28 [ric]** Review and merge PR #1 (`groundwork/news-bridge`) into `main`.
-- [ ] **T29 [agent]** Add CI (GitHub Actions): checkout with the submodule, run `pytest -q`.
+- [x] **T29 [agent]** Add CI (GitHub Actions): checkout with the submodule, run `pytest -q`.
 - [ ] **T30 [agent]** Bump the `vendor/5protocol` pin when 5protocol's news pipeline changes, and re-run tests.
 
 ---
@@ -169,3 +169,4 @@ _Agents: append dated notes here (render timings, dead feeds, prompt changes)._
 - 2026-11-04: Site build verified on Python 3.11 and 3.13; screenshots checked at 1366 px and 390 px. Run `pytest tests/test_site.py` after any template change; it fails on any broken internal link.
 
 - 2026-11-07: 27B confirmed on llama.cpp via 5protocol brain_server (127.0.0.1:8080, ctx 32768, ~66 tok/s on the 5090). Also reachable on the tailnet at 100.111.143.71:8081. Ollama retired. See the Local 27B work order above.
+- 2026-11-17: T29 done: `.github/workflows/tests.yml` runs `pytest -q` on PRs and main (submodule not checked out; the pipeline test skips). 27B port references updated 8080 -> 8090 (kwon9000 moved it; 8080 is now 5protocol's health port). If kwon9000's `tailscale serve` :18080 still points at 127.0.0.1:8080, the newsroom has no writer and nothing new publishes.
