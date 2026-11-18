@@ -94,6 +94,10 @@ class PublishedStore:
                             [json.dumps(r.get(c)) if c in ("sources", "verify") else r.get(c) for c in COLS])
         self.db.commit()
 
+    def public_slugs(self) -> set[str]:
+        """Every slug that may have a public page (any age)."""
+        return {r[0] for r in self.db.execute("SELECT slug FROM published WHERE rewritten=1")}
+
     def slugs(self) -> set[str]:
         return {r[0] for r in self.db.execute("SELECT slug FROM published")}
 

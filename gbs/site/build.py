@@ -1077,6 +1077,19 @@ def _rows_from_rundown(ctx: Ctx, rundown: list[Segment], videos: dict, now: floa
     return rows
 
 
+def purge_stale_stories(out: Path, keep: set[str]) -> list[Path]:
+    """Delete story pages (any language) that are not verified, Gu-written stories:
+    pages left on disk by builds from before the verification engine, or stories
+    later found to reuse a source headline. Returns what was removed."""
+    gone = []
+    for f in out.rglob("*.html"):
+        rel = f.relative_to(out).parts
+        if "story" in rel[:2] and f.stem not in keep:
+            f.unlink()
+            gone.append(f)
+    return gone
+
+
 def build_site(cfg: Settings, rundown: list[Segment], pulse: dict | None = None,
                videos: dict | None = None, show: dict | None = None,
                bookends: dict | None = None, extra: list[Segment] | None = None) -> Path:
@@ -1143,6 +1156,7 @@ def build_site(cfg: Settings, rundown: list[Segment], pulse: dict | None = None,
     machine_files(ctx)
     from gbs.site.i18n import localize_site
     localize_site(ctx)
+    purge_stale_stories(out, store.public_slugs())
 
     # hand-off for the studio renderer (not public; nginx denies it)
     bk = bookends or {}
