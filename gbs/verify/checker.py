@@ -22,6 +22,10 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 REGISTRY = REPO / "config" / "source_registry.json"
 ORIG_RUN = 6            # longest allowed shared run of words with any source text
+HEAD_RUN = 5            # headline vs a source headline: longest allowed shared run of words
+HEAD_OVERLAP = 0.75     # ...and the most of Gu's content words that may come from one source headline
+_HEAD_STOP = {"a", "an", "the", "of", "in", "on", "at", "to", "for", "and", "or", "as", "by", "with", "from",
+              "is", "are", "was", "were", "be", "its", "it", "after", "over", "into", "amid", "says", "say"}
 MIN_WEIGHT = 0.5        # outlets below this can't confirm
 WINDOW_H = 72           # corroborating reports must be within this many hours of each other
 
@@ -161,13 +165,27 @@ def _runs(a: list[str], b: list[str]) -> int:
     return best
 
 
+def headline_close(headline: str, title: str) -> bool:
+    """True when Gu's headline is a source headline, near enough word for word:
+    identical, a run of HEAD_RUN+ words in the same order, or most of its content
+    words lifted from that one headline (a reordered or one-word-swapped copy)."""
+    mine, src = words(headline), words(title)
+    if not mine or not src:
+        return False
+    if mine == src or _runs(mine, src) >= HEAD_RUN:
+        return True
+    cm = [w for w in mine if w not in _HEAD_STOP]
+    cs = set(w for w in src if w not in _HEAD_STOP)
+    return len(cm) >= 3 and sum(w in cs for w in cm) / len(cm) >= HEAD_OVERLAP
+
+
 def originality(headline: str, script: str, members: list) -> dict:
     mine = words(f"{headline} . {script}")
     longest, reused = 0, False
     for m in members:
         src = words(f"{m.title} . {m.summary}")
         longest = max(longest, _runs(mine, src))
-        if words(headline) and words(headline) == words(m.title):
+        if headline_close(headline, m.title):
             reused = True
     # a run made only of a multi-word name (e.g. 'united nations security council') is not copying;
     # ORIG_RUN is set high enough that names alone rarely reach it

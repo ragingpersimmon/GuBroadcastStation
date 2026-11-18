@@ -121,3 +121,43 @@ def test_fact_checked_false_claim_holds_the_story(tmp_path, monkeypatch):
                   related=[st("world:guardian", "Chile coast struck by quake", h="b")])
     assert not sw.write_story(cfg, seg, {"name": "Lena Moravec", "title": "Correspondent", "style": "Calm.", "sample": "x"})
     assert seg.verify["problems"] == ["matches a claim fact-checkers rated false"] and not seg.headline
+
+
+def test_headline_copies_are_blocked_not_just_exact_matches():
+    src = "Japan's prime minister calls snap election for December"
+    assert vc.headline_close(src, src)                                                     # word for word
+    assert vc.headline_close("Japan's prime minister calls snap election for next month", src)  # 5+ word run
+    assert vc.headline_close("For December, snap election called by Japan's prime minister", src)  # reordered lift
+    assert not vc.headline_close("Japanese voters head to the polls early as leader dissolves parliament", src)
+    assert not vc.headline_close("", src)
+    m = [st("world:bbc", src), st("world:dw", "Tokyo leader dissolves lower house, sets vote date")]
+    v = vc.verify("Japan's prime minister calls snap election for next month",
+                  "Japan's leader has dissolved the lower house and set a national vote for the end of the year, "
+                  "according to officials, giving parties only a few weeks to campaign before polling day arrives "
+                  "across the country.", m)
+    assert not v["publish"] and "reuses a source headline" in v["problems"]
+
+
+def test_unverified_story_pages_are_purged(tmp_path):
+    from gbs.site.build import purge_stale_stories
+    from gbs.site.data import PublishedStore
+    store = PublishedStore(tmp_path / "published.db")
+    base = {"ts": NOW, "story_ts": NOW, "show_id": None, "desk": "world", "standfirst": "", "presenter": "x",
+            "presenter_title": "", "sponsor_read": None, "video": None, "risk": 0, "verify": None}
+    store.upsert([
+        {**base, "slug": "ours", "story_key": "k1", "rewritten": 1, "title": "Chile counts quake damage",
+         "script": "s", "sources": [{"source": "world:bbc", "link": "", "title": "Quake hits Chile"}]},
+        {**base, "slug": "template", "story_key": "k3", "rewritten": 0, "title": "Floods in Spain",
+         "script": "s", "sources": []},
+    ])
+    assert {a["slug"] for a in store.recent()} == {"ours"}
+    assert store.public_slugs() == {"ours"}
+    out = tmp_path / "public"
+    for p in ("story/2026/11/01/ours.html", "story/2026/11/01/copied.html", "story/2026/11/01/template.html",
+              "ko/story/2026/11/01/template.html", "ko/story/2026/11/01/ours.html", "about/index.html"):
+        (out / p).parent.mkdir(parents=True, exist_ok=True)
+        (out / p).write_text("x")
+    gone = {f.relative_to(out).as_posix() for f in purge_stale_stories(out, store.public_slugs())}
+    assert gone == {"story/2026/11/01/copied.html", "story/2026/11/01/template.html",
+                    "ko/story/2026/11/01/template.html"}
+    assert (out / "about/index.html").exists() and (out / "ko/story/2026/11/01/ours.html").exists()

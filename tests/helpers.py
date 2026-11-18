@@ -14,13 +14,13 @@ def verified(segs, keep_titles=True):
 
 
 def fake_chat(cfg, system, user, timeout=0):
-    """Deterministic stand-in for the LLM: an original headline (sorted words of the first
-    report, so no source run survives) and a fixed original read."""
+    """Deterministic stand-in for the LLM: an original headline (none of the report's words,
+    unique per story) and a fixed original read."""
     if "HEADLINE:" not in system:   # bookends, sponsor reads, opens
         return "Here is the latest from the Gu newsroom."
     first = re.search(r"Report 1: (.+?)\. ", user)
-    ws = sorted(set(re.findall(r"[a-z]+", (first.group(1) if first else "story").lower())))
-    head = "Gu summary " + " ".join(ws[:6])
+    import zlib
+    head = f"Gu newsroom confirms development {zlib.crc32((first.group(1) if first else 'story').encode()) % 100000}"
     read = ("Gu has reviewed independent reports on this development and presents only the points they "
             "share, with each claim attributed to the people who made it. Officials gave no further detail "
             "today, and the newsroom will update this account when additional confirmation arrives.")
